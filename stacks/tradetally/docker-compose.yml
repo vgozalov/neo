@@ -85,7 +85,7 @@ services:
         - "traefik.http.routers.tradetally-https.entrypoints=websecure"
         - "traefik.http.routers.tradetally-https.tls=true"
         - "traefik.http.routers.tradetally-https.tls.certresolver=letsencrypt"
-        - "traefik.http.services.tradetally.loadbalancer.server.port=80"
+        - "traefik.http.services.tradetally.loadbalancer.server.port=${TRADETALLY_APP_PORT}"
         - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
         - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
       replicas: 1
