@@ -13,6 +13,16 @@ source "${ROOT_DIR}/helpers/common.sh"
 DEFAULT_DOMAIN="vagifgozalov.com"
 DEFAULT_CF_EMAIL="webmaster@avvaagency.com"
 
+SECONDARY_STACKS=("n8n" "audiobookshelf" "odoo_avva" "tradetally")
+declare -A STACK_SERVICE_NAMES=(
+  [traefik]="traefik_traefik"
+  [portainer]="portainer_portainer"
+  [n8n]="n8n_n8n"
+  [audiobookshelf]="audiobookshelf_audiobookshelf"
+  [odoo_avva]="odoo_avva_odoo"
+  [tradetally]="tradetally_tradetally"
+)
+
 # Cache domain within a run so we only ask once unless user overrides.
 MAIN_DOMAIN=""
 
@@ -167,6 +177,278 @@ remove_portainer() {
   docker stack rm portainer >/dev/null 2>&1 || log_warn "Portainer stack not found."
 }
 
+configure_n8n() {
+  ensure_domain_selected
+  log_info "Configuring n8n..."
+
+  local n8n_domain n8n_port n8n_timezone db_name db_user db_pass basic_active basic_user basic_pass env_file="${STACKS_DIR}/n8n/.env"
+
+  prompt_with_default "n8n domain" "n8n.${MAIN_DOMAIN}" n8n_domain
+  prompt_with_default "n8n public port" "5678" n8n_port
+  prompt_with_default "n8n timezone" "America/Chicago" n8n_timezone
+  prompt_with_default "Postgres database name" "n8n" db_name
+  prompt_with_default "Postgres user" "n8n" db_user
+  prompt_secret "Postgres password" db_pass
+  if [[ -z "${db_pass}" ]]; then
+    log_error "Database password cannot be empty."
+    exit 1
+  fi
+  prompt_with_default "Enable Basic Auth (true/false)" "true" basic_active
+  prompt_with_default "Basic auth username" "admin" basic_user
+  prompt_secret "Basic auth password" basic_pass
+  if [[ -z "${basic_pass}" ]]; then
+    log_error "Basic auth password cannot be empty."
+    exit 1
+  fi
+
+  cat > "${env_file}" <<EOF
+# Auto-generated on $(date -u)
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+N8N_DOMAIN=$(printf '%q' "${n8n_domain}")
+N8N_PORT=$(printf '%q' "${n8n_port}")
+N8N_TIMEZONE=$(printf '%q' "${n8n_timezone}")
+N8N_DB_NAME=$(printf '%q' "${db_name}")
+N8N_DB_USER=$(printf '%q' "${db_user}")
+N8N_DB_PASSWORD=$(printf '%q' "${db_pass}")
+N8N_BASIC_AUTH_ACTIVE=$(printf '%q' "${basic_active}")
+N8N_BASIC_AUTH_USER=$(printf '%q' "${basic_user}")
+N8N_BASIC_AUTH_PASSWORD=$(printf '%q' "${basic_pass}")
+EOF
+
+  mkdir -p "${STACKS_DIR}/n8n/.n8n" "${STACKS_DIR}/n8n/postgres/data"
+  log_success "n8n configuration written to ${env_file}"
+}
+
+configure_audiobookshelf() {
+  ensure_domain_selected
+  log_info "Configuring Audiobookshelf..."
+
+  local abs_domain abs_port abs_uid abs_gid env_file="${STACKS_DIR}/audiobookshelf/.env"
+
+  prompt_with_default "Audiobookshelf domain" "audiobookshelf.${MAIN_DOMAIN}" abs_domain
+  prompt_with_default "Audiobookshelf public port" "13378" abs_port
+  prompt_with_default "Container UID" "99" abs_uid
+  prompt_with_default "Container GID" "100" abs_gid
+
+  cat > "${env_file}" <<EOF
+# Auto-generated on $(date -u)
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+AUDIOBOOKSHELF_DOMAIN=$(printf '%q' "${abs_domain}")
+AUDIOBOOKSHELF_PORT=$(printf '%q' "${abs_port}")
+AUDIOBOOKSHELF_UID=$(printf '%q' "${abs_uid}")
+AUDIOBOOKSHELF_GID=$(printf '%q' "${abs_gid}")
+EOF
+
+  mkdir -p "${STACKS_DIR}/audiobookshelf/audiobooks" \
+           "${STACKS_DIR}/audiobookshelf/config" \
+           "${STACKS_DIR}/audiobookshelf/metadata"
+  log_success "Audiobookshelf configuration written to ${env_file}"
+}
+
+configure_odoo() {
+  ensure_domain_selected
+  log_info "Configuring Odoo..."
+
+  local odoo_domain odoo_port db_name db_user db_pass env_file="${STACKS_DIR}/odoo_avva/.env"
+
+  prompt_with_default "Odoo domain" "odoo.${MAIN_DOMAIN}" odoo_domain
+  prompt_with_default "Odoo public port" "8069" odoo_port
+  prompt_with_default "Postgres database name" "postgres" db_name
+  prompt_with_default "Postgres user" "odoo" db_user
+  prompt_secret "Postgres password" db_pass
+  if [[ -z "${db_pass}" ]]; then
+    log_error "Database password cannot be empty."
+    exit 1
+  fi
+
+  cat > "${env_file}" <<EOF
+# Auto-generated on $(date -u)
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+ODOO_DOMAIN=$(printf '%q' "${odoo_domain}")
+ODOO_PORT=$(printf '%q' "${odoo_port}")
+ODOO_DB_NAME=$(printf '%q' "${db_name}")
+ODOO_DB_USER=$(printf '%q' "${db_user}")
+ODOO_DB_PASSWORD=$(printf '%q' "${db_pass}")
+EOF
+
+  mkdir -p "${STACKS_DIR}/odoo_avva/postgres/data" \
+           "${STACKS_DIR}/odoo_avva/config" \
+           "${STACKS_DIR}/odoo_avva/addons"
+  log_success "Odoo configuration written to ${env_file}"
+}
+
+configure_tradetally() {
+  ensure_domain_selected
+  log_info "Configuring TradeTally..."
+
+  local tt_domain tt_port tt_image db_name db_user db_pass secret_key debug env_file="${STACKS_DIR}/tradetally/.env"
+
+  prompt_with_default "TradeTally domain" "tradetally.${MAIN_DOMAIN}" tt_domain
+  prompt_with_default "TradeTally public port" "8001" tt_port
+  prompt_with_default "TradeTally image" "potentialmidas/tradetally:latest" tt_image
+  prompt_with_default "Postgres database name" "tradetally" db_name
+  prompt_with_default "Postgres user" "tradetally" db_user
+  prompt_secret "Postgres password" db_pass
+  if [[ -z "${db_pass}" ]]; then
+    log_error "Database password cannot be empty."
+    exit 1
+  fi
+  prompt_secret "Application secret key" secret_key
+  if [[ -z "${secret_key}" ]]; then
+    log_error "Secret key cannot be empty."
+    exit 1
+  fi
+  prompt_with_default "Enable debug mode (true/false)" "false" debug
+
+  cat > "${env_file}" <<EOF
+# Auto-generated on $(date -u)
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+TRADETALLY_DOMAIN=$(printf '%q' "${tt_domain}")
+TRADETALLY_PORT=$(printf '%q' "${tt_port}")
+TRADETALLY_IMAGE=$(printf '%q' "${tt_image}")
+TRADETALLY_DB_NAME=$(printf '%q' "${db_name}")
+TRADETALLY_DB_USER=$(printf '%q' "${db_user}")
+TRADETALLY_DB_PASSWORD=$(printf '%q' "${db_pass}")
+TRADETALLY_SECRET_KEY=$(printf '%q' "${secret_key}")
+TRADETALLY_DEBUG=$(printf '%q' "${debug}")
+EOF
+
+  mkdir -p "${STACKS_DIR}/tradetally/postgres/data" \
+           "${STACKS_DIR}/tradetally/config"
+  log_success "TradeTally configuration written to ${env_file}"
+}
+
+deploy_custom_stack() {
+  local stack="$1"
+  local compose="${2:-docker-compose.yml}"
+  local stack_path="${STACKS_DIR}/${stack}"
+
+  if [[ ! -d "${stack_path}" ]]; then
+    log_error "Stack directory not found: ${stack_path}"
+    return 1
+  fi
+
+  if [[ ! -f "${stack_path}/.env" ]]; then
+    log_error "Missing .env for stack ${stack}. Run configuration first."
+    return 1
+  fi
+
+  ensure_networks
+  pushd "${stack_path}" >/dev/null
+  log_info "Deploying stack '${stack}'..."
+  deploy_stack_with_env "${stack_path}" "${stack}" "${compose}"
+  popd >/dev/null
+
+  local service="${STACK_SERVICE_NAMES[$stack]:-}"
+  if [[ -n "${service}" ]]; then
+    wait_for_service "${service}" || true
+  fi
+}
+
+deploy_secondary_stack() {
+  local stack="$1"
+  case "${stack}" in
+    n8n)
+      configure_n8n
+      deploy_custom_stack "n8n"
+      ;;
+    audiobookshelf)
+      configure_audiobookshelf
+      deploy_custom_stack "audiobookshelf"
+      ;;
+    odoo_avva)
+      configure_odoo
+      deploy_custom_stack "odoo_avva"
+      ;;
+    tradetally)
+      configure_tradetally
+      deploy_custom_stack "tradetally"
+      ;;
+    *)
+      log_warn "No automated workflow for stack '${stack}'."
+      ;;
+  esac
+}
+
+deploy_all_secondary_stacks() {
+  for stack in "${SECONDARY_STACKS[@]}"; do
+    echo ""
+    log_info "Deploying secondary stack: ${stack}"
+    deploy_secondary_stack "${stack}"
+  done
+  log_success "Secondary stacks deployment attempted."
+}
+
+generic_deploy_stack() {
+  local stack="$1"
+  local stack_path="${STACKS_DIR}/${stack}"
+  if [[ ! -d "${stack_path}" ]]; then
+    log_error "Stack '${stack}' directory not found."
+    return 1
+  fi
+  if [[ ! -f "${stack_path}/.env" ]]; then
+    log_error "Stack '${stack}' lacks automation and .env is missing. Please create ${stack_path}/.env first."
+    return 1
+  fi
+  deploy_custom_stack "${stack}"
+}
+
+deploy_stack_by_name() {
+  local stack="$1"
+  case "${stack}" in
+    traefik)
+      ensure_domain_selected
+      configure_traefik
+      deploy_traefik
+      ;;
+    portainer)
+      ensure_domain_selected
+      configure_portainer
+      deploy_portainer
+      ;;
+    n8n|audiobookshelf|odoo_avva|tradetally)
+      deploy_secondary_stack "${stack}"
+      ;;
+    *)
+      generic_deploy_stack "${stack}"
+      ;;
+  esac
+}
+
+deploy_single_stack_menu() {
+  mapfile -t available_stacks < <(find "${STACKS_DIR}" -maxdepth 1 -mindepth 1 -type d -printf "%f\n" | sort)
+
+  if [[ ${#available_stacks[@]} -eq 0 ]]; then
+    log_warn "No stacks found in ${STACKS_DIR}."
+    return
+  fi
+
+  echo ""
+  log_info "Available stacks:"
+  local idx=1
+  for stack in "${available_stacks[@]}"; do
+    echo "  ${idx}. ${stack}"
+    ((idx++))
+  done
+  echo "  0. Cancel"
+
+  local choice
+  read -rp "Select stack to deploy: " choice
+
+  if [[ "${choice}" == "0" ]]; then
+    log_info "Cancelled."
+    return
+  fi
+
+  if ! [[ "${choice}" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#available_stacks[@]} )); then
+    log_warn "Invalid selection."
+    return
+  fi
+
+  local selected="${available_stacks[choice-1]}"
+  deploy_stack_by_name "${selected}"
+}
+
 infra_up() {
   configure_traefik
   deploy_traefik
@@ -260,17 +542,19 @@ Docker Swarm Stack Deployment Manager
 1. Deploy Traefik
 2. Deploy Portainer
 3. Deploy All Infrastructure
-4. List Stacks
-5. Show Status
-6. Remove Stack
-7. Remove All Infrastructure
-8. View Service Logs
-9. Ensure Networks
-10. Reset Networks
-11. Exit
+4. Deploy All Secondary Stacks
+5. Deploy Single Stack
+6. List Stacks
+7. Show Status
+8. Remove Stack
+9. Remove All Infrastructure
+10. View Service Logs
+11. Ensure Networks
+12. Reset Networks
+13. Exit
 MENU
 
-    read -rp "Select an option (1-11): " choice
+    read -rp "Select an option (1-13): " choice
     case "${choice}" in
       1)
         ensure_domain_selected
@@ -286,29 +570,35 @@ MENU
         infra_up
         ;;
       4)
-        list_stacks
+        deploy_all_secondary_stacks
         ;;
       5)
-        show_status
+        deploy_single_stack_menu
         ;;
       6)
+        list_stacks
+        ;;
+      7)
+        show_status
+        ;;
+      8)
         read -rp "Enter stack name to remove: " stack_name
         remove_stack "${stack_name}"
         ;;
-      7)
+      9)
         infra_down
         ;;
-      8)
+      10)
         read -rp "Enter service name (e.g., traefik_traefik): " service_name
         show_logs "${service_name}"
         ;;
-      9)
+      11)
         ensure_networks
         ;;
-      10)
+      12)
         reset_networks
         ;;
-      11)
+      13)
         log_info "Exiting..."
         exit 0
         ;;
@@ -357,6 +647,13 @@ main() {
       case "${action}" in
         up) configure_portainer; deploy_portainer ;;
         down) remove_portainer ;;
+        *) usage ;;
+      esac
+      ;;
+    secondary)
+      case "${action}" in
+        up|all|"") deploy_all_secondary_stacks ;;
+        single) deploy_single_stack_menu ;;
         *) usage ;;
       esac
       ;;

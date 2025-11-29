@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  tradetally-postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${TRADETALLY_DB_NAME}
+      - POSTGRES_USER=${TRADETALLY_DB_USER}
+      - POSTGRES_PASSWORD=${TRADETALLY_DB_PASSWORD}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - tradetally-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  tradetally-redis:
+    image: redis:7-alpine
+    volumes:
+      - tradetally_redis_data:/data
+    networks:
+      - tradetally-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+
+  tradetally:
+    image: ${TRADETALLY_IMAGE}
+    environment:
+      - DATABASE_URL=postgresql://${TRADETALLY_DB_USER}:${TRADETALLY_DB_PASSWORD}@tradetally-postgres:5432/${TRADETALLY_DB_NAME}
+      - REDIS_URL=redis://tradetally-redis:6379
+      - SECRET_KEY=${TRADETALLY_SECRET_KEY}
+      - DEBUG=${TRADETALLY_DEBUG}
+      - ALLOWED_HOSTS=${TRADETALLY_DOMAIN}
+    volumes:
+      - ./config:/app/config
+    ports:
+      - "${TRADETALLY_PORT}:8000"
+    networks:
+      - web
+      - tradetally-internal
+    depends_on:
+      - tradetally-postgres
+      - tradetally-redis
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.tradetally-http.rule=Host(`${TRADETALLY_DOMAIN}`)"
+        - "traefik.http.routers.tradetally-http.entrypoints=web"
+        - "traefik.http.routers.tradetally-http.middlewares=redirect-to-https"
+        - "traefik.http.routers.tradetally-https.rule=Host(`${TRADETALLY_DOMAIN}`)"
+        - "traefik.http.routers.tradetally-https.entrypoints=websecure"
+        - "traefik.http.routers.tradetally-https.tls=true"
+        - "traefik.http.routers.tradetally-https.tls.certresolver=letsencrypt"
+        - "traefik.http.services.tradetally.loadbalancer.server.port=8000"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  web:
+    external: true
+  tradetally-internal:
+    driver: overlay
+
+volumes:
+  tradetally_redis_data:
+

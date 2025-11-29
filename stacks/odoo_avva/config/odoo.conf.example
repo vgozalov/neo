@@ -1,0 +1,8 @@
+[options]
+admin_passwd = change_me
+db_host = odoo-postgres
+db_port = 5432
+db_user = ${ODOO_DB_USER}
+db_password = ${ODOO_DB_PASSWORD}
+logfile = /var/log/odoo/odoo.log
+

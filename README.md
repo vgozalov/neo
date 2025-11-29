@@ -22,14 +22,15 @@ sudo apt install -y apache2-utils   # for htpasswd
 
 ```bash
 cd neo
-./setup.sh infra up
+./setup.sh infra up          # Traefik + Portainer
+./setup.sh secondary up      # n8n, Audiobookshelf, Odoo, TradeTally
 ```
 
 What happens:
-1. Prompts for main domain, Cloudflare credentials, and Traefik dashboard login
-2. Writes `.env` files for Traefik + Portainer
-3. Ensures overlay network `web` exists
-4. Deploys both stacks through `docker stack deploy`
+1. Prompts for main domain, Cloudflare credentials, dashboard/login info, database passwords, etc.
+2. Writes `.env` files for every stack (values are shell-escaped, so secrets stay intact when sourced)
+3. Ensures the shared overlay networks (`web`, `backend`, `monitoring`) exist or are recreated if corrupted
+4. Deploys the selected stacks through `docker stack deploy`
 
 ### Useful Commands
 
@@ -41,6 +42,8 @@ What happens:
 | `./setup.sh traefik down` | Remove Traefik |
 | `./setup.sh portainer up` | Configure + deploy Portainer only |
 | `./setup.sh portainer down` | Remove Portainer |
+| `./setup.sh secondary up` | Configure + deploy all secondary stacks (n8n, Audiobookshelf, Odoo, TradeTally) |
+| `./setup.sh secondary single` | Interactive picker to deploy any one stack |
 | `./setup.sh status` | Show stacks, services, networks |
 | `./setup.sh logs <service>` | Follow Swarm service logs |
 | `./setup.sh networks` | Ensure overlay networks exist (create any missing) |
@@ -56,18 +59,33 @@ Running `./setup.sh` with no arguments opens the classic numbered menu:
 | 1 | Deploy Traefik |
 | 2 | Deploy Portainer |
 | 3 | Deploy all infrastructure |
-| 4 | List stacks |
-| 5 | Show status (stacks, services, networks) |
-| 6 | Remove a specific stack |
-| 7 | Remove all infrastructure (Portainer + Traefik) |
-| 8 | View service logs |
-| 9 | Ensure overlay networks exist (create missing ones) |
-| 10 | Reset overlay networks (delete + recreate) |
-| 11 | Exit |
+| 4 | Deploy all secondary stacks (n8n, Audiobookshelf, Odoo, TradeTally) |
+| 5 | Deploy a single stack (picker lists everything in `stacks/`) |
+| 6 | List stacks |
+| 7 | Show status (stacks, services, networks) |
+| 8 | Remove a specific stack |
+| 9 | Remove all infrastructure (Portainer + Traefik) |
+| 10 | View service logs |
+| 11 | Ensure overlay networks exist (create missing ones) |
+| 12 | Reset overlay networks (delete + recreate) |
+| 13 | Exit |
 
 Each deployment option prompts for configuration (domain, Cloudflare token, etc.) with defaults already filled in.
 
 > `setup.sh` automatically ensures the shared overlay networks (web/backend/monitoring) exist before running any commands.
+
+## Supported Stacks
+
+| Stack | Purpose |
+| --- | --- |
+| Traefik | Reverse proxy, TLS termination, dashboard with basic auth |
+| Portainer | Docker Swarm UI / management |
+| n8n | Workflow automation + Postgres |
+| Audiobookshelf | Audiobook & podcast server |
+| Odoo AVVA | Odoo ERP + dedicated Postgres |
+| TradeTally | Trade management app + Postgres + Redis |
+
+All secondary stacks share the `web` overlay for public routing (Traefik) and also create an internal overlay for their databases/services. Each configure prompt collects the required secrets (DB passwords, basic auth credentials, secret keys, etc.) and writes `.env` files in their stack directories.
 
 ## Configuration Prompts
 
@@ -122,6 +140,19 @@ neo/
 │   └── common.sh         # shared shell helpers + network creation
 ├── setup.sh              # single entry point / interactive menu
 └── stacks/
+    ├── audiobookshelf/
+    │   ├── docker-compose.yml
+    │   └── environment.example
+    ├── n8n/
+    │   ├── docker-compose.yml
+    │   └── environment.example
+    ├── odoo_avva/
+    │   ├── docker-compose.yml
+    │   ├── environment.example
+    │   └── config/odoo.conf.example
+    ├── tradetally/
+    │   ├── docker-compose.yml
+    │   └── environment.example
     ├── portainer/
     │   ├── docker-compose.yml
     │   └── environment.example

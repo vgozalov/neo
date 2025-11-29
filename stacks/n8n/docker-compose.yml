@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  n8n-postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${N8N_DB_NAME}
+      - POSTGRES_USER=${N8N_DB_USER}
+      - POSTGRES_PASSWORD=${N8N_DB_PASSWORD}
+      - POSTGRES_NON_ROOT_USER=${N8N_DB_USER}
+      - POSTGRES_NON_ROOT_PASSWORD=${N8N_DB_PASSWORD}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - n8n-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=n8n-postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_DB_NAME}
+      - DB_POSTGRESDB_USER=${N8N_DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASSWORD}
+      - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - WEBHOOK_URL=https://${N8N_DOMAIN}
+      - GENERIC_TIMEZONE=${N8N_TIMEZONE}
+    volumes:
+      - ./.n8n:/home/node/.n8n
+    ports:
+      - "${N8N_PORT}:5678"
+    networks:
+      - web
+      - n8n-internal
+    depends_on:
+      - n8n-postgres
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.n8n-http.rule=Host(`${N8N_DOMAIN}`)"
+        - "traefik.http.routers.n8n-http.entrypoints=web"
+        - "traefik.http.routers.n8n-http.middlewares=redirect-to-https"
+        - "traefik.http.routers.n8n-https.rule=Host(`${N8N_DOMAIN}`)"
+        - "traefik.http.routers.n8n-https.entrypoints=websecure"
+        - "traefik.http.routers.n8n-https.tls=true"
+        - "traefik.http.routers.n8n-https.tls.certresolver=letsencrypt"
+        - "traefik.http.services.n8n.loadbalancer.server.port=5678"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  web:
+    external: true
+  n8n-internal:
+    driver: overlay
+
