@@ -97,6 +97,10 @@ create_overlay_network() {
   if output=$(docker network create "$@" "${name}" 2>&1); then
     log_success "Network '${name}' created."
   else
+    if echo "${output}" | grep -qi "already exists"; then
+      log_warn "Network '${name}' reported as existing; continuing with existing network."
+      return
+    fi
     log_error "Failed to create network '${name}': ${output}"
     exit 1
   fi
