@@ -1,7 +1,0 @@
-# Cloudflare Tunnel Configuration
-CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token_here
-
-# Note: Get your tunnel token from Cloudflare Zero Trust Dashboard
-# 1. Go to Zero Trust > Access > Tunnels
-# 2. Create a new tunnel or use existing one
-# 3. Copy the tunnel token

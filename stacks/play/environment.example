@@ -1,4 +1,0 @@
-# Play Static Site Configuration
-DOMAIN=vagifgozalov.com
-PLAY_DOMAIN=play.vagifgozalov.com
-PLAY_PORT=8080

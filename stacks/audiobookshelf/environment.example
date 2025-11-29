@@ -1,6 +1,0 @@
-# Audiobookshelf Configuration
-DOMAIN=vagifgozalov.com
-AUDIOBOOKSHELF_DOMAIN=audiobookshelf.vagifgozalov.com
-AUDIOBOOKSHELF_PORT=13378
-AUDIOBOOKSHELF_UID=99
-AUDIOBOOKSHELF_GID=100

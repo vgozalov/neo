@@ -1,334 +1,112 @@
-# Docker Swarm Stack Deployment Manager
+# Minimal Swarm Infrastructure
 
-A comprehensive shell script for managing Docker Swarm stack deployments with automated configuration and deployment.
+Single entry script (`setup.sh`) that configures and deploys **Traefik** and **Portainer** on Docker Swarm.  
+Helper routines live in `helpers/common.sh`; everything else is stack configuration.
 
-## 🚀 Features
+## Requirements
 
-- **Interactive Configuration**: Guided setup with sensible defaults
-- **Automatic .env Generation**: Creates environment files based on your inputs
-- **Docker Swarm Integration**: Full support for Docker Swarm deployments
-- **Secure Credentials**: Proper password hashing and secure storage
-- **Multiple Deployment Modes**: CLI commands or interactive menu
-- **Stack Management**: Deploy, remove, and monitor stacks easily
-
-## 📋 Prerequisites
-
-Before using this script, ensure you have:
-
-1. **Ubuntu Server** (or compatible Linux distribution)
-2. **Docker** installed and running
-3. **Docker Swarm** initialized
-4. **Domain name** configured with DNS provider
-5. **Cloudflare account** (for Traefik SSL certificates)
-
-### Quick Prerequisites Setup
+1. Ubuntu (or any Linux) host with Docker installed
+2. Docker Swarm initialized (`docker swarm init`)
+3. Public domain managed in Cloudflare
+4. Cloudflare API token with DNS edit permissions
+5. `htpasswd` package (optional, script falls back to `openssl`)
 
 ```bash
-# Install Docker (if not already installed)
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# Add your user to docker group
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Initialize Docker Swarm
+curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh
+sudo usermod -aG docker $USER && newgrp docker
 docker swarm init
-
-# Install htpasswd (optional but recommended)
-sudo apt update
-sudo apt install -y apache2-utils
+sudo apt install -y apache2-utils   # for htpasswd
 ```
 
-## 📦 Currently Supported Stacks
-
-- **Traefik**: Reverse proxy and load balancer with automatic SSL
-- **Portainer**: Docker management UI
-
-## 🎯 Quick Start
-
-### Option 1: Deploy Everything (Recommended)
+## Quick Start
 
 ```bash
-./deploy.sh all
+cd neo
+./setup.sh infra up
 ```
 
-This will:
-1. Ask for your main domain
-2. Configure Traefik (with Cloudflare API credentials)
-3. Configure Portainer
-4. Deploy both stacks
-5. Provide access URLs and next steps
+What happens:
+1. Prompts for main domain, Cloudflare credentials, and Traefik dashboard login
+2. Writes `.env` files for Traefik + Portainer
+3. Ensures overlay network `web` exists
+4. Deploys both stacks through `docker stack deploy`
 
-### Option 2: Deploy Individual Stacks
+### Useful Commands
 
-```bash
-# Deploy only Traefik
-./deploy.sh traefik
+| Command | Description |
+| --- | --- |
+| `./setup.sh infra up` | Configure + deploy Traefik and Portainer |
+| `./setup.sh infra down` | Remove both stacks |
+| `./setup.sh traefik up` | Configure + deploy Traefik only |
+| `./setup.sh traefik down` | Remove Traefik |
+| `./setup.sh portainer up` | Configure + deploy Portainer only |
+| `./setup.sh portainer down` | Remove Portainer |
+| `./setup.sh status` | Show stacks, services, networks |
+| `./setup.sh logs <service>` | Follow Swarm service logs |
 
-# Deploy only Portainer
-./deploy.sh portainer
-```
+## Configuration Prompts
 
-### Option 3: Interactive Menu
+Every `up` action collects:
 
-```bash
-./deploy.sh
-```
+**Traefik**
+- Main domain (default `vagifgozalov.com`)
+- Cloudflare email (default `webmaster@avvaagency.com`)
+- Cloudflare DNS API token
+- Dashboard username (default `admin`)
+- Dashboard password (hidden input, required)
 
-This will present an interactive menu with all available options.
+**Portainer**
+- Main domain (reuses last answer, editable)
+- Web UI port (default `9000`)
+- Edge Agent port (default `8000`)
 
-## 📖 Usage Guide
+Generated secrets are stored inside stack-specific `.env` files (ignored by git).  
+Traefik SSL data (`acme.json`) is created automatically with `chmod 600`.
 
-### Initial Deployment
+## DNS Checklist
 
-1. **Prepare Your Information**:
-   - Main domain (e.g., `vagifgozalov.com`)
-   - Cloudflare email address (e.g., `webmaster@avvaagency.com`)
-   - Cloudflare DNS API token
-   - Desired username/password for Traefik dashboard
+Add the following A records in Cloudflare pointing to your server IP:
 
-2. **Run the Deployment Script**:
-   ```bash
-   ./deploy.sh all
-   ```
+| Name | Value | Proxy |
+| --- | --- | --- |
+| `traefik` | `YOUR_SERVER_IP` | Orange cloud ✅ |
+| `portainer` | `YOUR_SERVER_IP` | Orange cloud ✅ |
 
-3. **Follow the Prompts**:
-   - Enter your main domain when prompted (default: vagifgozalov.com)
-   - Provide Cloudflare credentials (default email: webmaster@avvaagency.com)
-   - Set Traefik dashboard username and password
-   - Accept defaults for Portainer ports or customize them
+Cloudflare SSL/TLS mode should be **Full** (not Flexible).
 
-4. **Configure DNS**:
-   Add these DNS records in your domain provider (Cloudflare):
-   ```
-   Type: A
-   Name: traefik
-   Content: YOUR_SERVER_IP
-   Proxy: Yes (Orange Cloud)
-
-   Type: A
-   Name: portainer
-   Content: YOUR_SERVER_IP
-   Proxy: Yes (Orange Cloud)
-   ```
-
-5. **Access Your Services**:
-   - Traefik: `https://traefik.yourdomain.com`
-   - Portainer: `https://portainer.yourdomain.com`
-
-### Managing Stacks
-
-#### List Deployed Stacks
-```bash
-./deploy.sh list
-# or
-./deploy.sh ls
-```
-
-#### Check Status
-```bash
-./deploy.sh status
-```
-
-This shows:
-- All deployed stacks
-- All running services
-- Docker networks
-
-#### View Service Logs
-```bash
-./deploy.sh logs <service_name>
-
-# Example:
-./deploy.sh logs traefik_traefik
-./deploy.sh logs portainer_portainer
-```
-
-#### Remove a Stack
-```bash
-./deploy.sh remove <stack_name>
-
-# Example:
-./deploy.sh remove traefik
-./deploy.sh remove portainer
-```
-
-## 🔐 Security Considerations
-
-### Traefik Dashboard Authentication
-
-The script automatically generates a secure htpasswd hash for Traefik dashboard access. You'll set:
-- Username (default: `admin`)
-- Password (your choice, prompted securely)
-
-### Cloudflare API Token
-
-To create a Cloudflare API token:
-
-1. Log in to Cloudflare Dashboard
-2. Go to **My Profile** > **API Tokens**
-3. Click **Create Token**
-4. Use the **Edit zone DNS** template
-5. Set permissions:
-   - Zone / DNS / Edit
-6. Include your specific zone
-7. Create token and copy it
-
-### Environment Files
-
-The script creates `.env` files in each stack directory containing sensitive information:
-- These files are gitignored by default
-- Keep them secure and never commit to version control
-
-## 📁 Directory Structure
+## Directory Layout
 
 ```
 neo/
-├── deploy.sh                 # Main deployment script
-├── README.md                 # This file
+├── helpers/
+│   └── common.sh         # shared shell helpers
+├── setup.sh              # single entry point
 └── stacks/
-    ├── traefik/
+    ├── portainer/
     │   ├── docker-compose.yml
-    │   ├── environment.example
-    │   ├── .env              # Generated by script
-    │   ├── acme.json         # SSL certificates
-    │   └── traefik.yml       # Traefik configuration
-    └── portainer/
+    │   └── environment.example
+    └── traefik/
         ├── docker-compose.yml
         ├── environment.example
-        ├── .env              # Generated by script
-        └── data/             # Portainer data
+        ├── dynamic/
+        │   ├── certs.yml
+        │   └── middlewares.yml
+        └── traefik.yml
 ```
 
-## 🛠️ Troubleshooting
+`.env` files and `acme.json` are generated during setup and ignored by git.
 
-### Docker Swarm Not Initialized
+## Troubleshooting
 
-**Error**: `Docker Swarm is not initialized!`
+- `docker service ls` shows `0/1` replicas → check logs with `./setup.sh logs <service>`
+- `curl -I http://localhost:80` fails → ensure nothing else uses ports 80/443 (`sudo ss -tulpn | grep -E ':80|:443'`)
+- Cloudflare 523 errors → confirm DNS points to server IP and that firewall allows ports 80/443
+- Swarm inactive → run `docker swarm init`
+- Permission denied on docker socket → add user to docker group (`sudo usermod -aG docker $USER`)
 
-**Solution**:
-```bash
-docker swarm init
-```
+## Notes
 
-### Cannot Connect to Docker Daemon
-
-**Error**: `Cannot connect to Docker daemon`
-
-**Solution**:
-```bash
-# Add your user to docker group
-sudo usermod -aG docker $USER
-
-# Log out and log back in, or run:
-newgrp docker
-```
-
-### Service Not Starting
-
-**Check service logs**:
-```bash
-./deploy.sh logs traefik_traefik
-./deploy.sh logs portainer_portainer
-```
-
-**Check service status**:
-```bash
-docker service ps traefik_traefik --no-trunc
-docker service ps portainer_portainer --no-trunc
-```
-
-### SSL Certificate Issues
-
-If SSL certificates are not being issued:
-
-1. Verify DNS is pointing to your server:
-   ```bash
-   dig traefik.yourdomain.com
-   ```
-
-2. Check Cloudflare API token permissions
-
-3. View Traefik logs:
-   ```bash
-   ./deploy.sh logs traefik_traefik
-   ```
-
-4. Ensure acme.json has correct permissions:
-   ```bash
-   chmod 600 stacks/traefik/acme.json
-   ```
-
-### Port Already in Use
-
-If ports 80/443 are already in use:
-
-```bash
-# Check what's using the ports
-sudo netstat -tulpn | grep :80
-sudo netstat -tulpn | grep :443
-
-# Stop the conflicting service
-sudo systemctl stop apache2  # or nginx, or whatever is using the port
-```
-
-## 🔄 Updating Stacks
-
-To update a stack to a newer version:
-
-```bash
-# Remove the old stack
-./deploy.sh remove traefik
-
-# Wait for cleanup
-sleep 10
-
-# Redeploy with the same configuration
-./deploy.sh traefik
-```
-
-The script will reuse your existing `.env` configuration.
-
-## 📝 Command Reference
-
-| Command | Description |
-|---------|-------------|
-| `./deploy.sh all` | Deploy all stacks (Traefik + Portainer) |
-| `./deploy.sh traefik` | Deploy only Traefik |
-| `./deploy.sh portainer` | Deploy only Portainer |
-| `./deploy.sh list` | List deployed stacks |
-| `./deploy.sh status` | Show detailed status |
-| `./deploy.sh remove <stack>` | Remove a stack |
-| `./deploy.sh logs <service>` | View service logs |
-| `./deploy.sh help` | Show help message |
-| `./deploy.sh` | Interactive menu mode |
-
-## 🚧 Adding More Stacks
-
-The script is designed to be easily extensible. To add a new stack in the future:
-
-1. Create a new directory in `stacks/`
-2. Add `docker-compose.yml` and `environment.example`
-3. Add configuration and deployment functions in `deploy.sh`
-4. Update the menu and help text
-
-The maintainer will add more stacks as needed.
-
-## 📞 Support
-
-For issues or questions:
-- Check the Troubleshooting section
-- Review Docker Swarm logs: `docker service ls`
-- Check individual service logs: `./deploy.sh logs <service_name>`
-
-## 📄 License
-
-This deployment script is provided as-is for managing Docker Swarm deployments.
-
----
-
-**Last Updated**: November 2025
-**Version**: 1.0.0
-**Supported Stacks**: Traefik, Portainer
+- Traefik dashboard is protected with HTTP Basic Auth generated during setup.
+- Portainer admin password is created inside the web UI after initial deployment.
+- Re-run `./setup.sh infra up` anytime to regenerate configs and redeploy.
 
