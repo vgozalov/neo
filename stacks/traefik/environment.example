@@ -1,0 +1,12 @@
+# Traefik Configuration
+DOMAIN=vagifgozalov.com
+TRAEFIK_DOMAIN=traefik.vagifgozalov.com
+TRAEFIK_DASHBOARD_PORT=8080
+
+# Cloudflare DNS Challenge Configuration
+CF_EMAIL=webmaster@avvaagency.com
+CF_DNS_API_TOKEN=yhlOFXaVsifeHm2iMATOF0N1YrZvFIJMdq0XR6u_
+
+# Basic Auth for Traefik Dashboard
+# Generate with: echo $(htpasswd -nb admin password) | sed -e s/\\$/\\$\\$/g
+TRAEFIK_BASIC_AUTH=gozal:$$apr1$$ymOGIw8I$$Yp.SHHRcfr0urtjSunfsd.

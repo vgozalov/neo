@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  traefik:
+    image: traefik:latest
+    command:
+      - --configfile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic:/etc/traefik/dynamic:ro
+      - ./acme.json:/acme.json
+    networks:
+      - web
+    environment:
+      - CF_EMAIL=${CF_EMAIL}
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+      - TRAEFIK_BASIC_AUTH=${TRAEFIK_BASIC_AUTH}
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # HTTP router (will redirect to HTTPS)
+        - "traefik.http.routers.traefik-http.rule=Host(`${TRAEFIK_DOMAIN:-traefik.${DOMAIN}}`)"
+        - "traefik.http.routers.traefik-http.entrypoints=web"
+        - "traefik.http.routers.traefik-http.middlewares=redirect-to-https"
+        # HTTPS router  
+        - "traefik.http.routers.traefik-https.rule=Host(`${TRAEFIK_DOMAIN:-traefik.${DOMAIN}}`)"
+        - "traefik.http.routers.traefik-https.entrypoints=websecure"
+        - "traefik.http.routers.traefik-https.tls=true"
+        - "traefik.http.routers.traefik-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.traefik-https.service=api@internal"
+        - "traefik.http.routers.traefik-https.middlewares=auth"
+        # Middlewares
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+        - "traefik.http.middlewares.auth.basicauth.users=${TRAEFIK_BASIC_AUTH}"
+        - "traefik.http.services.dashboard.loadbalancer.server.port=8080"
+
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  web:
+    external: true

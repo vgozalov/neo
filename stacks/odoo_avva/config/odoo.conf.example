@@ -1,0 +1,56 @@
+# Odoo Configuration File
+# Copy this file to odoo.conf and customize as needed
+
+[options]
+# Database settings
+db_host = odoo-postgres
+db_port = 5432
+db_user = odoo
+db_password = change_this_password
+;db_name = False  # Set to False to allow multiple databases
+
+# Server settings
+http_port = 8069
+;http_interface = 0.0.0.0
+;proxy_mode = True
+
+# Logging
+log_level = info
+log_handler = :INFO
+;logfile = /var/log/odoo/odoo.log
+
+# Performance
+workers = 2
+max_cron_threads = 1
+limit_memory_soft = 2147483648
+limit_memory_hard = 2684354560
+limit_time_cpu = 600
+limit_time_real = 1200
+limit_request = 8192
+
+# Security
+admin_passwd = change_this_admin_password
+;list_db = False  # Set to False in production
+
+# Additional paths
+addons_path = /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
+
+# File upload
+limit_time_real_cron = -1
+data_dir = /var/lib/odoo
+
+# Email configuration (optional)
+;email_from = odoo@example.com
+;smtp_server = localhost
+;smtp_port = 587
+;smtp_user = False
+;smtp_password = False
+;smtp_ssl = False
+
+# Internationalization
+;without_demo = all
+;translate_modules = ['all']
+
+# Development (disable in production)
+;dev_mode = False
+;debug_mode = False

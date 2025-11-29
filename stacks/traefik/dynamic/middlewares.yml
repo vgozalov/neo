@@ -1,0 +1,40 @@
+http:
+  middlewares:
+    # Security headers
+    security-headers:
+      headers:
+        accessControlAllowMethods:
+          - GET
+          - OPTIONS
+          - PUT
+          - POST
+        accessControlMaxAge: 100
+        hostsProxyHeaders:
+          - "X-Forwarded-Host"
+        referrerPolicy: "strict-origin-when-cross-origin"
+        contentTypeNosniff: true
+        browserXssFilter: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsSeconds: 31536000
+        stsPreload: true
+        frameDeny: true
+
+    # Rate limiting
+    rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+
+    # Basic auth
+    auth:
+      basicAuth:
+        realm: "Traefik Dashboard"
+        usersFile: "/etc/traefik/users"
+
+    # HTTP to HTTPS redirect
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true

@@ -1,0 +1,11 @@
+# Odoo AVVA Configuration
+DOMAIN=vagifgozalov.com
+ODOO_DOMAIN=odoo.vagifgozalov.com
+ODOO_PORT=8069
+
+# Database Configuration
+ODOO_DB_NAME=postgres
+ODOO_DB_USER=odoo
+ODOO_DB_PASSWORD=change_this_password
+
+# Generate with  htpasswd -nb admin "P@ssw0rd" | sed -e 's/\$/\$\$/g'

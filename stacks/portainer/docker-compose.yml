@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    command: -H unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/data
+    ports:
+      - "${PORTAINER_PORT:-9000}:9000"
+      - "${PORTAINER_EDGE_PORT:-8000}:8000"
+    networks:
+      - web
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # HTTP router (redirects to HTTPS)
+        - "traefik.http.routers.portainer-http.rule=Host(`${PORTAINER_DOMAIN:-portainer.${DOMAIN}}`)"
+        - "traefik.http.routers.portainer-http.entrypoints=web"
+        - "traefik.http.routers.portainer-http.middlewares=redirect-to-https"
+        # HTTPS router
+        - "traefik.http.routers.portainer-https.rule=Host(`${PORTAINER_DOMAIN:-portainer.${DOMAIN}}`)"
+        - "traefik.http.routers.portainer-https.entrypoints=websecure"
+        - "traefik.http.routers.portainer-https.tls=true"
+        - "traefik.http.routers.portainer-https.tls.certresolver=letsencrypt"
+        - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+        # Middleware for HTTP to HTTPS redirect
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  web:
+    external: true

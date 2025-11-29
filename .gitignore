@@ -1,0 +1,38 @@
+# Environment files with sensitive data
+.env
+**/.env
+*.env
+
+# SSL certificates
+acme.json
+**/acme.json
+
+# Portainer data
+**/data/
+
+# Traefik dynamic config (if contains secrets)
+# **/dynamic/
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

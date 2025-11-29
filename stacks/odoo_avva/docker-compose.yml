@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  odoo-postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=${ODOO_DB_NAME:-postgres}
+      - POSTGRES_USER=${ODOO_DB_USER:-odoo}
+      - POSTGRES_PASSWORD=${ODOO_DB_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data/pgdata
+    networks:
+      - odoo-internal
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  odoo:
+    image: odoo:latest
+    environment:
+      - HOST=odoo-postgres
+      - USER=${ODOO_DB_USER:-odoo}
+      - PASSWORD=${ODOO_DB_PASSWORD}
+    volumes:
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+      - odoo_web_data:/var/lib/odoo
+    ports:
+      - "${ODOO_PORT:-8069}:8069"
+    networks:
+      - web
+      - odoo-internal
+    depends_on:
+      - odoo-postgres
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        # HTTP router (redirects to HTTPS)
+        - "traefik.http.routers.odoo-http.rule=Host(`${ODOO_DOMAIN:-odoo.${DOMAIN}}`)"
+        - "traefik.http.routers.odoo-http.entrypoints=web"
+        - "traefik.http.routers.odoo-http.middlewares=redirect-to-https"
+        # HTTPS router
+        - "traefik.http.routers.odoo-https.rule=Host(`${ODOO_DOMAIN:-odoo.${DOMAIN}}`)"
+        - "traefik.http.routers.odoo-https.entrypoints=websecure"
+        - "traefik.http.routers.odoo-https.tls=true"
+        - "traefik.http.routers.odoo-https.tls.certresolver=letsencrypt"
+        - "traefik.http.services.odoo.loadbalancer.server.port=8069"
+        # Middleware for HTTP to HTTPS redirect
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+networks:
+  web:
+    external: true
+  odoo-internal:
+    driver: overlay
+
+volumes:
+  odoo_web_data:

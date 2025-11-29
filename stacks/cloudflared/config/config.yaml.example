@@ -1,0 +1,63 @@
+# Cloudflare Tunnel Configuration
+# Copy this file to config.yaml and update with your actual values
+
+tunnel: your-tunnel-id-here
+credentials-file: /etc/cloudflared/credentials.json
+
+# Ingress rules - route traffic to your Docker services
+ingress:
+  # Main domain - route to static site
+  - hostname: example.com
+    service: http://play-static:80
+  
+  # Traefik dashboard
+  - hostname: traefik.example.com
+    service: http://traefik:8080
+  
+  # Portainer
+  - hostname: portainer.example.com
+    service: http://portainer:9000
+  
+  # N8N
+  - hostname: n8n.example.com
+    service: http://n8n:5678
+  
+  # Odoo AVVA
+  - hostname: odoo.example.com
+    service: http://odoo:8069
+  
+  # TradeTally
+  - hostname: tradetally.example.com
+    service: http://tradetally:8000
+  
+  # Audiobookshelf
+  - hostname: audiobookshelf.example.com
+    service: http://audiobookshelf:80
+  
+  # Catch-all rule (required)
+  - service: http_status:404
+
+# Optional: Configure log level
+loglevel: info
+
+# Optional: Configure metrics
+metrics: 0.0.0.0:9090
+
+# Optional: Configure no-autoupdate
+no-autoupdate: true
+
+# Optional: Configure origin server name for TLS verification
+# originServerName: example.com
+
+# Optional: Configure retries
+retries: 3
+
+# Optional: Configure grace period for shutdown
+grace-period: 30s
+
+# Notes:
+# 1. Get your tunnel ID from Cloudflare Zero Trust Dashboard
+# 2. Generate credentials with: cloudflared tunnel create <tunnel-name>
+# 3. The credentials.json file should be mounted in the container
+# 4. Update all domain names to match your actual domains
+# 5. Ensure the service names match your Docker service names

@@ -1,0 +1,8 @@
+# Portainer Configuration
+DOMAIN=vagifgozalov.com
+PORTAINER_DOMAIN=portainer.vagifgozalov.com
+PORTAINER_PORT=9000
+PORTAINER_EDGE_PORT=8000
+
+# Network Configuration
+NETWORK_NAME=web
