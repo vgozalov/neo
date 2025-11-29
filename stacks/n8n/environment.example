@@ -3,6 +3,7 @@ DOMAIN=vagifgozalov.com
 N8N_DOMAIN=n8n.vagifgozalov.com
 N8N_PORT=5678
 N8N_TIMEZONE=America/Chicago
+N8N_ENCRYPTION_KEY=change_this_encryption_key
 
 # Database Configuration
 N8N_DB_NAME=n8n

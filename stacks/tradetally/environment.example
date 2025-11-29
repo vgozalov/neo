@@ -1,6 +1,6 @@
 # TradeTally Configuration
 DOMAIN=vagifgozalov.com
-TRADETALLY_DOMAIN=tradetally.vagifgozalov.com
+TRADETALLY_DOMAIN=tt.vagifgozalov.com
 TRADETALLY_PORT=8001
 TRADETALLY_IMAGE=potentialmidas/tradetally:latest
 

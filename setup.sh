@@ -181,7 +181,7 @@ configure_n8n() {
   ensure_domain_selected
   log_info "Configuring n8n..."
 
-  local n8n_domain n8n_port n8n_timezone db_name db_user db_pass basic_active basic_user basic_pass env_file="${STACKS_DIR}/n8n/.env"
+  local n8n_domain n8n_port n8n_timezone db_name db_user db_pass basic_active basic_user basic_pass encryption_key env_file="${STACKS_DIR}/n8n/.env"
 
   prompt_with_default "n8n domain" "n8n.${MAIN_DOMAIN}" n8n_domain
   prompt_with_default "n8n public port" "5678" n8n_port
@@ -200,6 +200,16 @@ configure_n8n() {
     log_error "Basic auth password cannot be empty."
     exit 1
   fi
+  prompt_with_default "Encryption key (leave blank to auto-generate)" "" encryption_key
+  if [[ -z "${encryption_key}" ]]; then
+    if command -v openssl >/dev/null 2>&1; then
+      encryption_key="$(openssl rand -hex 24)"
+      log_info "Generated encryption key automatically."
+    else
+      log_error "OpenSSL not available. Please provide an encryption key."
+      exit 1
+    fi
+  fi
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
@@ -213,9 +223,16 @@ N8N_DB_PASSWORD=$(printf '%q' "${db_pass}")
 N8N_BASIC_AUTH_ACTIVE=$(printf '%q' "${basic_active}")
 N8N_BASIC_AUTH_USER=$(printf '%q' "${basic_user}")
 N8N_BASIC_AUTH_PASSWORD=$(printf '%q' "${basic_pass}")
+N8N_ENCRYPTION_KEY=$(printf '%q' "${encryption_key}")
 EOF
 
   mkdir -p "${STACKS_DIR}/n8n/.n8n" "${STACKS_DIR}/n8n/postgres/data"
+  if ! chown -R 1000:1000 "${STACKS_DIR}/n8n/.n8n" >/dev/null 2>&1; then
+    log_warn "Could not change ownership of ${STACKS_DIR}/n8n/.n8n to 1000:1000. Ensure permissions allow container writes."
+  fi
+  if ! chown -R 999:999 "${STACKS_DIR}/n8n/postgres/data" >/dev/null 2>&1; then
+    log_warn "Could not change ownership of ${STACKS_DIR}/n8n/postgres/data to 999:999."
+  fi
   log_success "n8n configuration written to ${env_file}"
 }
 
@@ -283,7 +300,7 @@ configure_tradetally() {
 
   local tt_domain tt_port tt_image db_name db_user db_pass secret_key debug env_file="${STACKS_DIR}/tradetally/.env"
 
-  prompt_with_default "TradeTally domain" "tradetally.${MAIN_DOMAIN}" tt_domain
+  prompt_with_default "TradeTally domain" "tt.${MAIN_DOMAIN}" tt_domain
   prompt_with_default "TradeTally public port" "8001" tt_port
   prompt_with_default "TradeTally image" "potentialmidas/tradetally:latest" tt_image
   prompt_with_default "Postgres database name" "tradetally" db_name
