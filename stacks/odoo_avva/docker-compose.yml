@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   odoo-postgres:
-    image: postgres:15
+    image: postgres:16
     environment:
       - POSTGRES_DB=${ODOO_DB_NAME}
       - POSTGRES_USER=${ODOO_DB_USER}
@@ -21,7 +21,7 @@ services:
           - node.role == manager
 
   odoo:
-    image: odoo:latest
+    image: odoo:19
     environment:
       - HOST=odoo-postgres
       - USER=${ODOO_DB_USER}
@@ -30,8 +30,6 @@ services:
       - ./config:/etc/odoo
       - ./addons:/mnt/extra-addons
       - odoo_web_data:/var/lib/odoo
-    ports:
-      - "${ODOO_PORT}:8069"
     networks:
       - web
       - odoo-internal
@@ -40,16 +38,15 @@ services:
     deploy:
       labels:
         - "traefik.enable=true"
-        - "traefik.http.routers.odoo-http.rule=Host(`${ODOO_DOMAIN}`)"
-        - "traefik.http.routers.odoo-http.entrypoints=web"
-        - "traefik.http.routers.odoo-http.middlewares=redirect-to-https"
-        - "traefik.http.routers.odoo-https.rule=Host(`${ODOO_DOMAIN}`)"
-        - "traefik.http.routers.odoo-https.entrypoints=websecure"
-        - "traefik.http.routers.odoo-https.tls=true"
-        - "traefik.http.routers.odoo-https.tls.certresolver=letsencrypt"
+        - "traefik.http.routers.odoo.rule=Host(`${ODOO_DOMAIN}`)"
+        - "traefik.http.routers.odoo.entrypoints=websecure"
+        - "traefik.http.routers.odoo.tls.certresolver=letsencrypt"
         - "traefik.http.services.odoo.loadbalancer.server.port=8069"
-        - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-        - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+        - "traefik.docker.network=web"
+        - "traefik.http.routers.odoo-longpolling.rule=Host(`${ODOO_DOMAIN}`) && PathPrefix(`/longpolling`)"
+        - "traefik.http.routers.odoo-longpolling.entrypoints=websecure"
+        - "traefik.http.routers.odoo-longpolling.tls.certresolver=letsencrypt"
+        - "traefik.http.services.odoo-longpolling.loadbalancer.server.port=8072"
       replicas: 1
       restart_policy:
         condition: on-failure
@@ -65,4 +62,6 @@ networks:
 
 volumes:
   odoo_web_data:
+  odoo_db_data:
+  odoo_addons:
 

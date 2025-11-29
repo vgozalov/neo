@@ -298,11 +298,12 @@ configure_tradetally() {
   ensure_domain_selected
   log_info "Configuring TradeTally..."
 
-  local tt_domain tt_port tt_image db_name db_user db_pass secret_key debug env_file="${STACKS_DIR}/tradetally/.env"
+  local tt_domain tt_port tt_image app_port db_name db_user db_pass secret_key api_url frontend_url cors_origins email_host email_port email_user email_pass email_from env_file="${STACKS_DIR}/tradetally/.env"
 
   prompt_with_default "TradeTally domain" "tt.${MAIN_DOMAIN}" tt_domain
   prompt_with_default "TradeTally public port" "8001" tt_port
   prompt_with_default "TradeTally image" "potentialmidas/tradetally:latest" tt_image
+  prompt_with_default "TradeTally internal app port" "3000" app_port
   prompt_with_default "Postgres database name" "tradetally" db_name
   prompt_with_default "Postgres user" "tradetally" db_user
   prompt_secret "Postgres password" db_pass
@@ -310,12 +311,19 @@ configure_tradetally() {
     log_error "Database password cannot be empty."
     exit 1
   fi
-  prompt_secret "Application secret key" secret_key
+  prompt_secret "JWT secret key" secret_key
   if [[ -z "${secret_key}" ]]; then
     log_error "Secret key cannot be empty."
     exit 1
   fi
-  prompt_with_default "Enable debug mode (true/false)" "false" debug
+  prompt_with_default "API URL" "https://${tt_domain}/api" api_url
+  prompt_with_default "Frontend URL" "https://${tt_domain}" frontend_url
+  prompt_with_default "CORS origins (comma separated)" "" cors_origins
+  prompt_with_default "Email host" "smtp.gmail.com" email_host
+  prompt_with_default "Email port" "587" email_port
+  prompt_with_default "Email user" "" email_user
+  prompt_secret "Email password (optional)" email_pass
+  prompt_with_default "Email from" "noreply@tradetally.io" email_from
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
@@ -323,11 +331,32 @@ DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
 TRADETALLY_DOMAIN=$(printf '%q' "${tt_domain}")
 TRADETALLY_PORT=$(printf '%q' "${tt_port}")
 TRADETALLY_IMAGE=$(printf '%q' "${tt_image}")
+TRADETALLY_APP_PORT=$(printf '%q' "${app_port}")
+TRADETALLY_NODE_ENV=$(printf '%q' "production")
 TRADETALLY_DB_NAME=$(printf '%q' "${db_name}")
 TRADETALLY_DB_USER=$(printf '%q' "${db_user}")
 TRADETALLY_DB_PASSWORD=$(printf '%q' "${db_pass}")
-TRADETALLY_SECRET_KEY=$(printf '%q' "${secret_key}")
-TRADETALLY_DEBUG=$(printf '%q' "${debug}")
+TRADETALLY_JWT_SECRET=$(printf '%q' "${secret_key}")
+TRADETALLY_JWT_EXPIRES_IN=$(printf '%q' "7d")
+TRADETALLY_ACCESS_TOKEN_EXPIRE=$(printf '%q' "15m")
+TRADETALLY_REFRESH_TOKEN_EXPIRE=$(printf '%q' "30d")
+TRADETALLY_MAX_DEVICES=$(printf '%q' "10")
+TRADETALLY_ENABLE_DEVICE_TRACKING=$(printf '%q' "true")
+TRADETALLY_VITE_API_URL=$(printf '%q' "${api_url}")
+TRADETALLY_FRONTEND_URL=$(printf '%q' "${frontend_url}")
+TRADETALLY_CORS_ORIGINS=$(printf '%q' "${cors_origins}")
+TRADETALLY_EMAIL_HOST=$(printf '%q' "${email_host}")
+TRADETALLY_EMAIL_PORT=$(printf '%q' "${email_port}")
+TRADETALLY_EMAIL_USER=$(printf '%q' "${email_user}")
+TRADETALLY_EMAIL_PASS=$(printf '%q' "${email_pass}")
+TRADETALLY_EMAIL_FROM=$(printf '%q' "${email_from}")
+TRADETALLY_REGISTRATION_MODE=$(printf '%q' "open")
+TRADETALLY_ENABLE_SWAGGER=$(printf '%q' "true")
+TRADETALLY_RUN_MIGRATIONS=$(printf '%q' "true")
+TRADETALLY_BILLING_ENABLED=$(printf '%q' "false")
+TRADETALLY_STRIPE_SECRET_KEY=$(printf '%q' "")
+TRADETALLY_STRIPE_PUBLISHABLE_KEY=$(printf '%q' "")
+TRADETALLY_STRIPE_WEBHOOK_SECRET=$(printf '%q' "")
 EOF
 
   mkdir -p "${STACKS_DIR}/tradetally/postgres/data" \
