@@ -8,3 +8,6 @@ ODOO_DB_NAME=postgres
 ODOO_DB_USER=odoo
 ODOO_DB_PASSWORD=change_this_password
 
+# Admin (master) password for Odoo backend
+ODOO_ADMIN_PASSWORD=change_this_master_password
+

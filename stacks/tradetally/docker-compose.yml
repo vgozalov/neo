@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   tradetally-postgres:
-    image: postgres:16-alpine
+    image: postgres:15
     environment:
       - POSTGRES_DB=${TRADETALLY_DB_NAME}
       - POSTGRES_USER=${TRADETALLY_DB_USER}
@@ -32,9 +32,6 @@ services:
 
   tradetally:
     image: ${TRADETALLY_IMAGE}
-    depends_on:
-      - tradetally-postgres
-      - tradetally-redis
     environment:
       - NODE_ENV=${TRADETALLY_NODE_ENV}
       - PORT=${TRADETALLY_APP_PORT}
@@ -43,14 +40,16 @@ services:
       - DB_USER=${TRADETALLY_DB_USER}
       - DB_PASSWORD=${TRADETALLY_DB_PASSWORD}
       - DB_NAME=${TRADETALLY_DB_NAME}
+      - DATABASE_URL=postgresql://${TRADETALLY_DB_USER}:${TRADETALLY_DB_PASSWORD}@tradetally-postgres:5432/${TRADETALLY_DB_NAME}
+      - REDIS_URL=redis://tradetally-redis:6379
       - JWT_SECRET=${TRADETALLY_JWT_SECRET}
       - JWT_EXPIRES_IN=${TRADETALLY_JWT_EXPIRES_IN}
       - ACCESS_TOKEN_EXPIRE=${TRADETALLY_ACCESS_TOKEN_EXPIRE}
       - REFRESH_TOKEN_EXPIRE=${TRADETALLY_REFRESH_TOKEN_EXPIRE}
       - MAX_DEVICES_PER_USER=${TRADETALLY_MAX_DEVICES}
       - ENABLE_DEVICE_TRACKING=${TRADETALLY_ENABLE_DEVICE_TRACKING}
-      - FRONTEND_URL=${TRADETALLY_FRONTEND_URL}
       - VITE_API_URL=${TRADETALLY_VITE_API_URL}
+      - FRONTEND_URL=${TRADETALLY_FRONTEND_URL}
       - CORS_ORIGINS=${TRADETALLY_CORS_ORIGINS}
       - EMAIL_HOST=${TRADETALLY_EMAIL_HOST}
       - EMAIL_PORT=${TRADETALLY_EMAIL_PORT}
@@ -64,13 +63,18 @@ services:
       - STRIPE_SECRET_KEY=${TRADETALLY_STRIPE_SECRET_KEY}
       - STRIPE_PUBLISHABLE_KEY=${TRADETALLY_STRIPE_PUBLISHABLE_KEY}
       - STRIPE_WEBHOOK_SECRET=${TRADETALLY_STRIPE_WEBHOOK_SECRET}
+      - ALLOWED_HOSTS=${TRADETALLY_DOMAIN}
+      - DEBUG=${TRADETALLY_DEBUG}
     volumes:
       - ./config:/app/config
-    ports:
-      - "${TRADETALLY_PORT}:80"
+      - ./backend/logs:/app/backend/src/logs
+      - ./backend/data:/app/backend/src/data
     networks:
       - web
       - tradetally-internal
+    depends_on:
+      - tradetally-postgres
+      - tradetally-redis
     deploy:
       labels:
         - "traefik.enable=true"

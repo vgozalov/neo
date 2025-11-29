@@ -266,7 +266,7 @@ configure_odoo() {
   ensure_domain_selected
   log_info "Configuring Odoo..."
 
-  local odoo_domain odoo_port db_name db_user db_pass env_file="${STACKS_DIR}/odoo_avva/.env"
+  local odoo_domain odoo_port db_name db_user db_pass admin_pass env_file="${STACKS_DIR}/odoo_avva/.env"
 
   prompt_with_default "Odoo domain" "odoo.${MAIN_DOMAIN}" odoo_domain
   prompt_with_default "Odoo public port" "8069" odoo_port
@@ -277,6 +277,16 @@ configure_odoo() {
     log_error "Database password cannot be empty."
     exit 1
   fi
+  prompt_secret "Odoo admin (master) password" admin_pass
+  if [[ -z "${admin_pass}" ]]; then
+    if command -v openssl >/dev/null 2>&1; then
+      admin_pass="$(openssl rand -hex 16)"
+      log_info "Generated random Odoo admin password."
+    else
+      log_error "Admin password cannot be empty."
+      exit 1
+    fi
+  fi
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
@@ -286,11 +296,24 @@ ODOO_PORT=$(printf '%q' "${odoo_port}")
 ODOO_DB_NAME=$(printf '%q' "${db_name}")
 ODOO_DB_USER=$(printf '%q' "${db_user}")
 ODOO_DB_PASSWORD=$(printf '%q' "${db_pass}")
+ODOO_ADMIN_PASSWORD=$(printf '%q' "${admin_pass}")
 EOF
 
   mkdir -p "${STACKS_DIR}/odoo_avva/postgres/data" \
            "${STACKS_DIR}/odoo_avva/config" \
            "${STACKS_DIR}/odoo_avva/addons"
+
+  cat > "${STACKS_DIR}/odoo_avva/config/odoo.conf" <<EOF
+[options]
+admin_passwd = ${admin_pass}
+db_host = odoo-postgres
+db_port = 5432
+db_user = ${db_user}
+db_password = ${db_pass}
+logfile = /var/log/odoo/odoo.log
+EOF
+
+  log_info "Wrote Odoo config to ${STACKS_DIR}/odoo_avva/config/odoo.conf"
   log_success "Odoo configuration written to ${env_file}"
 }
 
@@ -298,24 +321,30 @@ configure_tradetally() {
   ensure_domain_selected
   log_info "Configuring TradeTally..."
 
-  local tt_domain tt_port tt_image app_port db_name db_user db_pass secret_key api_url frontend_url cors_origins email_host email_port email_user email_pass email_from env_file="${STACKS_DIR}/tradetally/.env"
+  local tt_domain tt_port tt_image app_port node_env db_name db_user db_pass jwt_secret jwt_expires access_expire refresh_expire max_devices enable_device api_url frontend_url cors_origins email_host email_port email_user email_pass email_from registration_mode enable_swagger run_migrations billing_enabled stripe_secret stripe_pub stripe_webhook debug env_file="${STACKS_DIR}/tradetally/.env"
 
   prompt_with_default "TradeTally domain" "tt.${MAIN_DOMAIN}" tt_domain
   prompt_with_default "TradeTally public port" "8001" tt_port
   prompt_with_default "TradeTally image" "potentialmidas/tradetally:latest" tt_image
   prompt_with_default "TradeTally internal app port" "3000" app_port
+  prompt_with_default "Node environment" "production" node_env
   prompt_with_default "Postgres database name" "tradetally" db_name
-  prompt_with_default "Postgres user" "tradetally" db_user
+  prompt_with_default "Postgres user" "trader" db_user
   prompt_secret "Postgres password" db_pass
   if [[ -z "${db_pass}" ]]; then
     log_error "Database password cannot be empty."
     exit 1
   fi
-  prompt_secret "JWT secret key" secret_key
-  if [[ -z "${secret_key}" ]]; then
-    log_error "Secret key cannot be empty."
+  prompt_secret "JWT secret key" jwt_secret
+  if [[ -z "${jwt_secret}" ]]; then
+    log_error "JWT secret key cannot be empty."
     exit 1
   fi
+  prompt_with_default "JWT expires in" "7d" jwt_expires
+  prompt_with_default "Access token lifetime" "15m" access_expire
+  prompt_with_default "Refresh token lifetime" "30d" refresh_expire
+  prompt_with_default "Max devices per user" "10" max_devices
+  prompt_with_default "Enable device tracking (true/false)" "true" enable_device
   prompt_with_default "API URL" "https://${tt_domain}/api" api_url
   prompt_with_default "Frontend URL" "https://${tt_domain}" frontend_url
   prompt_with_default "CORS origins (comma separated)" "" cors_origins
@@ -324,6 +353,14 @@ configure_tradetally() {
   prompt_with_default "Email user" "" email_user
   prompt_secret "Email password (optional)" email_pass
   prompt_with_default "Email from" "noreply@tradetally.io" email_from
+  prompt_with_default "Registration mode" "open" registration_mode
+  prompt_with_default "Enable Swagger (true/false)" "true" enable_swagger
+  prompt_with_default "Run migrations on start (true/false)" "true" run_migrations
+  prompt_with_default "Billing enabled (true/false)" "false" billing_enabled
+  prompt_with_default "Stripe secret key" "" stripe_secret
+  prompt_with_default "Stripe publishable key" "" stripe_pub
+  prompt_with_default "Stripe webhook secret" "" stripe_webhook
+  prompt_with_default "Enable debug mode (true/false)" "false" debug
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
@@ -332,16 +369,16 @@ TRADETALLY_DOMAIN=$(printf '%q' "${tt_domain}")
 TRADETALLY_PORT=$(printf '%q' "${tt_port}")
 TRADETALLY_IMAGE=$(printf '%q' "${tt_image}")
 TRADETALLY_APP_PORT=$(printf '%q' "${app_port}")
-TRADETALLY_NODE_ENV=$(printf '%q' "production")
+TRADETALLY_NODE_ENV=$(printf '%q' "${node_env}")
 TRADETALLY_DB_NAME=$(printf '%q' "${db_name}")
 TRADETALLY_DB_USER=$(printf '%q' "${db_user}")
 TRADETALLY_DB_PASSWORD=$(printf '%q' "${db_pass}")
-TRADETALLY_JWT_SECRET=$(printf '%q' "${secret_key}")
-TRADETALLY_JWT_EXPIRES_IN=$(printf '%q' "7d")
-TRADETALLY_ACCESS_TOKEN_EXPIRE=$(printf '%q' "15m")
-TRADETALLY_REFRESH_TOKEN_EXPIRE=$(printf '%q' "30d")
-TRADETALLY_MAX_DEVICES=$(printf '%q' "10")
-TRADETALLY_ENABLE_DEVICE_TRACKING=$(printf '%q' "true")
+TRADETALLY_JWT_SECRET=$(printf '%q' "${jwt_secret}")
+TRADETALLY_JWT_EXPIRES_IN=$(printf '%q' "${jwt_expires}")
+TRADETALLY_ACCESS_TOKEN_EXPIRE=$(printf '%q' "${access_expire}")
+TRADETALLY_REFRESH_TOKEN_EXPIRE=$(printf '%q' "${refresh_expire}")
+TRADETALLY_MAX_DEVICES=$(printf '%q' "${max_devices}")
+TRADETALLY_ENABLE_DEVICE_TRACKING=$(printf '%q' "${enable_device}")
 TRADETALLY_VITE_API_URL=$(printf '%q' "${api_url}")
 TRADETALLY_FRONTEND_URL=$(printf '%q' "${frontend_url}")
 TRADETALLY_CORS_ORIGINS=$(printf '%q' "${cors_origins}")
@@ -350,17 +387,20 @@ TRADETALLY_EMAIL_PORT=$(printf '%q' "${email_port}")
 TRADETALLY_EMAIL_USER=$(printf '%q' "${email_user}")
 TRADETALLY_EMAIL_PASS=$(printf '%q' "${email_pass}")
 TRADETALLY_EMAIL_FROM=$(printf '%q' "${email_from}")
-TRADETALLY_REGISTRATION_MODE=$(printf '%q' "open")
-TRADETALLY_ENABLE_SWAGGER=$(printf '%q' "true")
-TRADETALLY_RUN_MIGRATIONS=$(printf '%q' "true")
-TRADETALLY_BILLING_ENABLED=$(printf '%q' "false")
-TRADETALLY_STRIPE_SECRET_KEY=$(printf '%q' "")
-TRADETALLY_STRIPE_PUBLISHABLE_KEY=$(printf '%q' "")
-TRADETALLY_STRIPE_WEBHOOK_SECRET=$(printf '%q' "")
+TRADETALLY_REGISTRATION_MODE=$(printf '%q' "${registration_mode}")
+TRADETALLY_ENABLE_SWAGGER=$(printf '%q' "${enable_swagger}")
+TRADETALLY_RUN_MIGRATIONS=$(printf '%q' "${run_migrations}")
+TRADETALLY_BILLING_ENABLED=$(printf '%q' "${billing_enabled}")
+TRADETALLY_STRIPE_SECRET_KEY=$(printf '%q' "${stripe_secret}")
+TRADETALLY_STRIPE_PUBLISHABLE_KEY=$(printf '%q' "${stripe_pub}")
+TRADETALLY_STRIPE_WEBHOOK_SECRET=$(printf '%q' "${stripe_webhook}")
+TRADETALLY_DEBUG=$(printf '%q' "${debug}")
 EOF
 
   mkdir -p "${STACKS_DIR}/tradetally/postgres/data" \
-           "${STACKS_DIR}/tradetally/config"
+           "${STACKS_DIR}/tradetally/config" \
+           "${STACKS_DIR}/tradetally/backend/logs" \
+           "${STACKS_DIR}/tradetally/backend/data"
   log_success "TradeTally configuration written to ${env_file}"
 }
 
