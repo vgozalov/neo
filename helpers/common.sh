@@ -85,11 +85,27 @@ ensure_swarm() {
 }
 
 # Internal helper to create overlay network with options.
+network_matches_overlay() {
+  local name="$1"
+  local info
+  if ! info=$(docker network inspect -f '{{.Driver}}|{{.Scope}}' "${name}" 2>/dev/null); then
+    return 1
+  fi
+  local driver="${info%%|*}"
+  local scope="${info##*|}"
+  [[ "${driver}" == "overlay" && "${scope}" == "swarm" ]]
+}
+
 create_overlay_network() {
   local name="$1"
   shift
 
   if docker network inspect "${name}" >/dev/null 2>&1; then
+    if network_matches_overlay "${name}"; then
+      log_success "Network '${name}' already exists and is overlay/swarm."
+      return
+    fi
+
     if [[ "${RECREATE_NETWORKS}" == "true" ]]; then
       log_info "Removing existing network '${name}' to apply desired settings."
       if docker network rm "${name}" >/dev/null 2>&1; then

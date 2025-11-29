@@ -308,6 +308,7 @@ MENU
 main() {
   require_docker
   ensure_swarm
+  ensure_networks
 
   if [[ $# -eq 0 ]]; then
     interactive_menu

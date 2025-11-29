@@ -67,6 +67,8 @@ Running `./setup.sh` with no arguments opens the classic numbered menu:
 
 Each deployment option prompts for configuration (domain, Cloudflare token, etc.) with defaults already filled in.
 
+> `setup.sh` automatically ensures the shared overlay networks (web/backend/monitoring) exist before running any commands.
+
 ## Configuration Prompts
 
 Every `up` action collects:
