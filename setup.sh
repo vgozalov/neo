@@ -207,6 +207,29 @@ remove_stack() {
   fi
 }
 
+reset_networks() {
+  log_warn "This will remove overlay networks '${WEB_NETWORK_NAME}', '${BACKEND_NETWORK_NAME}', '${MONITORING_NETWORK_NAME}'."
+  read -rp "Type 'reset' to continue: " confirm
+  if [[ "${confirm}" != "reset" ]]; then
+    log_info "Network reset cancelled."
+    return
+  fi
+
+  for net in "${WEB_NETWORK_NAME}" "${BACKEND_NETWORK_NAME}" "${MONITORING_NETWORK_NAME}"; do
+    if docker network inspect "${net}" >/dev/null 2>&1; then
+      if docker network rm "${net}" >/dev/null 2>&1; then
+        log_success "Removed network '${net}'."
+      else
+        log_warn "Failed to remove network '${net}' (in use)."
+      fi
+    else
+      log_info "Network '${net}' does not exist; skipping."
+    fi
+  done
+
+  ensure_networks
+}
+
 interactive_menu() {
   while true; do
     cat <<'MENU'
@@ -222,10 +245,12 @@ Docker Swarm Stack Deployment Manager
 6. Remove Stack
 7. Remove All Infrastructure
 8. View Service Logs
-9. Exit
+9. Ensure Networks
+10. Reset Networks
+11. Exit
 MENU
 
-    read -rp "Select an option (1-9): " choice
+    read -rp "Select an option (1-11): " choice
     case "${choice}" in
       1)
         ensure_domain_selected
@@ -258,6 +283,12 @@ MENU
         show_logs "${service_name}"
         ;;
       9)
+        ensure_networks
+        ;;
+      10)
+        reset_networks
+        ;;
+      11)
         log_info "Exiting..."
         exit 0
         ;;
@@ -327,7 +358,11 @@ main() {
       infra_down
       ;;
     networks)
-      ensure_networks
+      if [[ "${action}" == "reset" ]]; then
+        reset_networks
+      else
+        ensure_networks
+      fi
       ;;
     logs)
       show_logs "${action}"

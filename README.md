@@ -43,7 +43,8 @@ What happens:
 | `./setup.sh portainer down` | Remove Portainer |
 | `./setup.sh status` | Show stacks, services, networks |
 | `./setup.sh logs <service>` | Follow Swarm service logs |
-| `./setup.sh networks` | Ensure overlay networks exist |
+| `./setup.sh networks` | Ensure overlay networks exist (create any missing) |
+| `./setup.sh networks reset` | Delete and recreate overlay networks |
 | `./setup.sh` | Launch interactive 1-9 menu |
 
 ### Interactive Menu
@@ -60,7 +61,9 @@ Running `./setup.sh` with no arguments opens the classic numbered menu:
 | 6 | Remove a specific stack |
 | 7 | Remove all infrastructure (Portainer + Traefik) |
 | 8 | View service logs |
-| 9 | Exit |
+| 9 | Ensure overlay networks exist (create missing ones) |
+| 10 | Reset overlay networks (delete + recreate) |
+| 11 | Exit |
 
 Each deployment option prompts for configuration (domain, Cloudflare token, etc.) with defaults already filled in.
 
@@ -104,7 +107,7 @@ Three overlay networks are managed automatically and reused by every stack:
 | `backend` | `10.1.0.0/24` | `10.1.0.1` | overlay, internal, encrypted |
 | `monitoring` | `10.2.0.0/24` | `10.2.0.1` | overlay, attachable, encrypted |
 
-Use `./setup.sh networks` to recreate the networks if needed. Existing networks with these names are reused by default; set `RECREATE_NETWORKS=true` (e.g. `RECREATE_NETWORKS=true ./setup.sh networks`) to force a rebuild.  
+Use `./setup.sh networks` to create any missing networks, or `./setup.sh networks reset` to drop and recreate them. Existing networks with these names are reused by default; set `RECREATE_NETWORKS=true ./setup.sh networks` to force a rebuild without using the reset command.  
 The command also recreates Docker's ingress network if it was removed.
 
 **Important:** do not delete the built-in `bridge`, `host`, `none`, `docker_gwbridge`, or `ingress` networks manually. If `ingress` is missing, run `./setup.sh networks` to bring it back.
@@ -139,7 +142,7 @@ neo/
 - Swarm inactive → run `docker swarm init`
 - Permission denied on docker socket → add user to docker group (`sudo usermod -aG docker $USER`)
 - Error `service needs ingress network` → run `./setup.sh networks` (recreates Docker's ingress overlay)
-- Network definitions stale → run `RECREATE_NETWORKS=true ./setup.sh networks` to drop and rebuild the shared overlays
+- Network definitions stale → run `./setup.sh networks reset` (or `RECREATE_NETWORKS=true ./setup.sh networks`) to drop and rebuild the shared overlays
 
 ## Notes
 

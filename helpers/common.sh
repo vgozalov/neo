@@ -62,14 +62,26 @@ require_docker() {
   fi
 }
 
-# Ensure docker swarm initialized.
+# Ensure docker swarm initialized; auto-init if possible.
 ensure_swarm() {
-  if ! docker info 2>/dev/null | grep -q "Swarm: active"; then
-    log_error "Docker Swarm is not initialized."
-    log_info "Run 'docker swarm init' on this host before continuing."
-    exit 1
+  if docker info 2>/dev/null | grep -q "Swarm: active"; then
+    log_success "Docker Swarm is active."
+    return
   fi
-  log_success "Docker Swarm is active."
+
+  log_warn "Docker Swarm not initialized; attempting 'docker swarm init'."
+  if docker swarm init >/dev/null 2>&1; then
+    log_success "Docker Swarm initialized automatically."
+    return
+  fi
+
+  if docker info 2>/dev/null | grep -q "This node is already part of a swarm"; then
+    log_success "Docker Swarm reports this node already in a swarm."
+    return
+  fi
+
+  log_error "Failed to initialize Docker Swarm. Run 'docker swarm init' manually."
+  exit 1
 }
 
 # Internal helper to create overlay network with options.
