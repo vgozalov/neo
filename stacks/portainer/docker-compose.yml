@@ -16,11 +16,11 @@ services:
       labels:
         - "traefik.enable=true"
         # HTTP router (redirects to HTTPS)
-        - "traefik.http.routers.portainer-http.rule=Host(`${PORTAINER_DOMAIN:-portainer.${DOMAIN}}`)"
+        - "traefik.http.routers.portainer-http.rule=Host(`${PORTAINER_DOMAIN}`)"
         - "traefik.http.routers.portainer-http.entrypoints=web"
         - "traefik.http.routers.portainer-http.middlewares=redirect-to-https"
         # HTTPS router
-        - "traefik.http.routers.portainer-https.rule=Host(`${PORTAINER_DOMAIN:-portainer.${DOMAIN}}`)"
+        - "traefik.http.routers.portainer-https.rule=Host(`${PORTAINER_DOMAIN}`)"
         - "traefik.http.routers.portainer-https.entrypoints=websecure"
         - "traefik.http.routers.portainer-https.tls=true"
         - "traefik.http.routers.portainer-https.tls.certresolver=letsencrypt"

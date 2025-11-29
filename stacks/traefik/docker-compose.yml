@@ -24,11 +24,11 @@ services:
       labels:
         - "traefik.enable=true"
         # HTTP router (will redirect to HTTPS)
-        - "traefik.http.routers.traefik-http.rule=Host(`${TRAEFIK_DOMAIN:-traefik.${DOMAIN}}`)"
+        - "traefik.http.routers.traefik-http.rule=Host(`${TRAEFIK_DOMAIN}`)"
         - "traefik.http.routers.traefik-http.entrypoints=web"
         - "traefik.http.routers.traefik-http.middlewares=redirect-to-https"
         # HTTPS router  
-        - "traefik.http.routers.traefik-https.rule=Host(`${TRAEFIK_DOMAIN:-traefik.${DOMAIN}}`)"
+        - "traefik.http.routers.traefik-https.rule=Host(`${TRAEFIK_DOMAIN}`)"
         - "traefik.http.routers.traefik-https.entrypoints=websecure"
         - "traefik.http.routers.traefik-https.tls=true"
         - "traefik.http.routers.traefik-https.tls.certresolver=letsencrypt"
