@@ -105,6 +105,9 @@ Three overlay networks are managed automatically and reused by every stack:
 | `monitoring` | `10.2.0.0/24` | `10.2.0.1` | overlay, attachable, encrypted |
 
 Use `./setup.sh networks` to recreate the networks if needed. Existing networks with these names are kept as-is.
+The command also recreates Docker's ingress network if it was removed.
+
+**Important:** do not delete the built-in `bridge`, `host`, `none`, `docker_gwbridge`, or `ingress` networks manually. If `ingress` is missing, run `./setup.sh networks` to bring it back.
 
 ## Directory Layout
 
@@ -135,6 +138,7 @@ neo/
 - Cloudflare 523 errors → confirm DNS points to server IP and that firewall allows ports 80/443
 - Swarm inactive → run `docker swarm init`
 - Permission denied on docker socket → add user to docker group (`sudo usermod -aG docker $USER`)
+- Error `service needs ingress network` → run `./setup.sh networks` (recreates Docker's ingress overlay)
 
 ## Notes
 

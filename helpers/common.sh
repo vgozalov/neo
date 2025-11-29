@@ -15,6 +15,9 @@ BACKEND_NETWORK_NAME="backend"
 MONITORING_NETWORK_NAME="monitoring"
 NETWORK_NAME="${WEB_NETWORK_NAME}"  # backward compatibility alias
 
+# Whether existing custom networks should be recreated (default: true).
+RECREATE_NETWORKS="${RECREATE_NETWORKS:-true}"
+
 # Colors for readable output.
 COLOR_RESET="\033[0m"
 COLOR_INFO="\033[1;34m"
@@ -24,8 +27,8 @@ COLOR_ERROR="\033[1;31m"
 
 log_info()    { echo -e "${COLOR_INFO}ℹ ${1}${COLOR_RESET}"; }
 log_success() { echo -e "${COLOR_SUCCESS}✓ ${1}${COLOR_RESET}"; }
-log_warn()    { echo -e "${COLOR_WARN}⚠ ${1}${COLOR_RESET}"; }
-log_error()   { echo -e "${COLOR_ERROR}✗ ${1}${COLOR_RESET}"; }
+log_warn()    { echo -e "${COLOR_WARN}⚠ ${1}${COLOR_RESET}" >&2; }
+log_error()   { echo -e "${COLOR_ERROR}✗ ${1}${COLOR_RESET}" >&2; }
 
 # Prompt helper with default value.
 prompt_with_default() {
@@ -75,28 +78,50 @@ create_overlay_network() {
   shift
 
   if docker network inspect "${name}" >/dev/null 2>&1; then
-    log_success "Network '${name}' already exists."
-    return
+    if [[ "${RECREATE_NETWORKS}" == "true" ]]; then
+      log_info "Removing existing network '${name}' to apply desired settings."
+      if docker network rm "${name}" >/dev/null 2>&1; then
+        log_success "Old network '${name}' removed."
+      else
+        log_warn "Unable to remove network '${name}' (likely in use); reusing existing network."
+        return
+      fi
+    else
+      log_success "Network '${name}' already exists."
+      return
+    fi
   fi
 
   log_info "Creating overlay network '${name}'."
-  if docker network create "$@" "${name}" >/dev/null 2>&1; then
+  local output
+  if output=$(docker network create "$@" "${name}" 2>&1); then
     log_success "Network '${name}' created."
+  else
+    log_error "Failed to create network '${name}': ${output}"
+    exit 1
+  fi
+}
+
+ensure_ingress_network() {
+  if docker network inspect ingress >/dev/null 2>&1; then
+    log_success "Ingress network is present."
     return
   fi
 
-  # If creation failed because it already exists (race) just continue.
-  if docker network inspect "${name}" >/dev/null 2>&1; then
-    log_warn "Network '${name}' already exists; using existing definition."
-    return
+  log_warn "Ingress network missing; recreating default ingress network."
+  local output
+  if output=$(docker network create --driver overlay --ingress ingress 2>&1); then
+    log_success "Ingress network recreated."
+  else
+    log_error "Failed to recreate ingress network: ${output}"
+    exit 1
   fi
-
-  log_error "Failed to create network '${name}'."
-  exit 1
 }
 
 # Ensure all required overlay networks exist with consistent configuration.
 ensure_networks() {
+  ensure_ingress_network
+
   create_overlay_network \
     "${WEB_NETWORK_NAME}" \
     --driver overlay \
