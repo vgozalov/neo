@@ -104,7 +104,7 @@ Three overlay networks are managed automatically and reused by every stack:
 | `backend` | `10.1.0.0/24` | `10.1.0.1` | overlay, internal, encrypted |
 | `monitoring` | `10.2.0.0/24` | `10.2.0.1` | overlay, attachable, encrypted |
 
-Use `./setup.sh networks` to recreate the networks if needed. Existing networks with these names are kept as-is.
+Use `./setup.sh networks` to recreate the networks if needed. Existing networks with these names are reused by default; set `RECREATE_NETWORKS=true` (e.g. `RECREATE_NETWORKS=true ./setup.sh networks`) to force a rebuild.  
 The command also recreates Docker's ingress network if it was removed.
 
 **Important:** do not delete the built-in `bridge`, `host`, `none`, `docker_gwbridge`, or `ingress` networks manually. If `ingress` is missing, run `./setup.sh networks` to bring it back.
@@ -139,6 +139,7 @@ neo/
 - Swarm inactive → run `docker swarm init`
 - Permission denied on docker socket → add user to docker group (`sudo usermod -aG docker $USER`)
 - Error `service needs ingress network` → run `./setup.sh networks` (recreates Docker's ingress overlay)
+- Network definitions stale → run `RECREATE_NETWORKS=true ./setup.sh networks` to drop and rebuild the shared overlays
 
 ## Notes
 

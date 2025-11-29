@@ -15,8 +15,8 @@ BACKEND_NETWORK_NAME="backend"
 MONITORING_NETWORK_NAME="monitoring"
 NETWORK_NAME="${WEB_NETWORK_NAME}"  # backward compatibility alias
 
-# Whether existing custom networks should be recreated (default: true).
-RECREATE_NETWORKS="${RECREATE_NETWORKS:-true}"
+# Whether existing custom networks should be recreated (default: false).
+RECREATE_NETWORKS="${RECREATE_NETWORKS:-false}"
 
 # Colors for readable output.
 COLOR_RESET="\033[0m"
