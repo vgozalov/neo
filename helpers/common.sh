@@ -100,24 +100,32 @@ create_overlay_network() {
   local name="$1"
   shift
 
+  # Helper to forcefully recreate network.
+  recreate_network() {
+    log_warn "Recreating network '${name}'."
+    if docker network rm "${name}" >/dev/null 2>&1; then
+      log_success "Removed network '${name}'."
+    else
+      log_error "Failed to remove network '${name}'. Please ensure no services are attached."
+      exit 1
+    fi
+    if docker network create "$@" "${name}" >/dev/null 2>&1; then
+      log_success "Network '${name}' created."
+    else
+      log_error "Failed to recreate network '${name}'."
+      exit 1
+    fi
+  }
+
   if docker network inspect "${name}" >/dev/null 2>&1; then
     if network_matches_overlay "${name}"; then
       log_success "Network '${name}' already exists and is overlay/swarm."
       return
     fi
 
-    if [[ "${RECREATE_NETWORKS}" == "true" ]]; then
-      log_info "Removing existing network '${name}' to apply desired settings."
-      if docker network rm "${name}" >/dev/null 2>&1; then
-        log_success "Old network '${name}' removed."
-      else
-        log_warn "Unable to remove network '${name}' (likely in use); reusing existing network."
-        return
-      fi
-    else
-      log_success "Network '${name}' already exists."
-      return
-    fi
+    log_warn "Network '${name}' exists but is not overlay/swarm; recreating."
+    recreate_network
+    return
   fi
 
   log_info "Creating overlay network '${name}'."
@@ -126,7 +134,12 @@ create_overlay_network() {
     log_success "Network '${name}' created."
   else
     if echo "${output}" | grep -qi "already exists"; then
-      log_warn "Network '${name}' reported as existing; continuing with existing network."
+      if network_matches_overlay "${name}"; then
+        log_success "Network '${name}' already exists and is overlay/swarm."
+        return
+      fi
+      log_warn "Network '${name}' exists but is incompatible; recreating."
+      recreate_network
       return
     fi
     log_error "Failed to create network '${name}': ${output}"
