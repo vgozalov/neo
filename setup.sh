@@ -100,12 +100,12 @@ configure_traefik() {
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
-DOMAIN=${MAIN_DOMAIN}
-TRAEFIK_DOMAIN=traefik.${MAIN_DOMAIN}
-TRAEFIK_DASHBOARD_PORT=8080
-CF_EMAIL=${cf_email}
-CF_DNS_API_TOKEN=${cf_token}
-TRAEFIK_BASIC_AUTH=${basic_auth}
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+TRAEFIK_DOMAIN=$(printf '%q' "traefik.${MAIN_DOMAIN}")
+TRAEFIK_DASHBOARD_PORT=$(printf '%q' "8080")
+CF_EMAIL=$(printf '%q' "${cf_email}")
+CF_DNS_API_TOKEN=$(printf '%q' "${cf_token}")
+TRAEFIK_BASIC_AUTH=$(printf '%q' "${basic_auth}")
 EOF
 
   local acme="${STACKS_DIR}/traefik/acme.json"
@@ -142,11 +142,11 @@ configure_portainer() {
 
   cat > "${env_file}" <<EOF
 # Auto-generated on $(date -u)
-DOMAIN=${MAIN_DOMAIN}
-PORTAINER_DOMAIN=portainer.${MAIN_DOMAIN}
-PORTAINER_PORT=${http_port}
-PORTAINER_EDGE_PORT=${edge_port}
-NETWORK_NAME=${WEB_NETWORK_NAME}
+DOMAIN=$(printf '%q' "${MAIN_DOMAIN}")
+PORTAINER_DOMAIN=$(printf '%q' "portainer.${MAIN_DOMAIN}")
+PORTAINER_PORT=$(printf '%q' "${http_port}")
+PORTAINER_EDGE_PORT=$(printf '%q' "${edge_port}")
+NETWORK_NAME=$(printf '%q' "${WEB_NETWORK_NAME}")
 EOF
 
   mkdir -p "${STACKS_DIR}/portainer/data"

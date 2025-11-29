@@ -201,12 +201,12 @@ generate_htpasswd() {
   local password="$2"
 
   if command -v htpasswd >/dev/null 2>&1; then
-    htpasswd -nb "${username}" "${password}" | sed -e 's/\$/\$\$/g'
+    htpasswd -nb "${username}" "${password}"
   else
     log_warn "htpasswd command not found; using openssl fallback."
     local hash
     hash="$(openssl passwd -apr1 "${password}")"
-    echo "${username}:${hash}" | sed -e 's/\$/\$\$/g'
+    echo "${username}:${hash}"
   fi
 }
 
