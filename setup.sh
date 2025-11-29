@@ -56,6 +56,26 @@ ensure_domain_selected() {
   fi
 }
 
+deploy_stack_with_env() {
+  local stack_dir="$1"
+  local stack_name="$2"
+  local compose_file="${3:-docker-compose.yml}"
+  local env_file="${stack_dir}/.env"
+
+  if [[ ! -f "${env_file}" ]]; then
+    log_error "Environment file not found for stack '${stack_name}' (${env_file}). Run configuration first."
+    exit 1
+  fi
+
+  (
+    set -a
+    # shellcheck disable=SC1090
+    source "${env_file}"
+    set +a
+    docker stack deploy -c "${compose_file}" "${stack_name}"
+  )
+}
+
 configure_traefik() {
   ensure_domain_selected
   log_info "Configuring Traefik for domain: ${MAIN_DOMAIN}"
@@ -101,7 +121,7 @@ deploy_traefik() {
   ensure_networks
   pushd "${STACKS_DIR}/traefik" >/dev/null
   log_info "Deploying Traefik stack..."
-  docker stack deploy -c docker-compose.yml traefik
+  deploy_stack_with_env "${STACKS_DIR}/traefik" "traefik"
   popd >/dev/null
   wait_for_service "traefik_traefik" || true
 }
@@ -137,7 +157,7 @@ deploy_portainer() {
   ensure_networks
   pushd "${STACKS_DIR}/portainer" >/dev/null
   log_info "Deploying Portainer stack..."
-  docker stack deploy -c docker-compose.yml portainer
+  deploy_stack_with_env "${STACKS_DIR}/portainer" "portainer"
   popd >/dev/null
   wait_for_service "portainer_portainer" || true
 }
