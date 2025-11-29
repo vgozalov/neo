@@ -31,6 +31,10 @@ Actions
 
 Utility commands
   ./setup.sh status
+  ./setup.sh list
+  ./setup.sh remove <stack_name>
+  ./setup.sh networks
+  ./setup.sh menu
   ./setup.sh logs <service_name>
 
 Examples
@@ -38,6 +42,7 @@ Examples
   ./setup.sh traefik up
   ./setup.sh portainer down
   ./setup.sh logs traefik_traefik
+  ./setup.sh                 # interactive menu
 EOF
 }
 
@@ -93,7 +98,7 @@ EOF
 }
 
 deploy_traefik() {
-  ensure_network
+  ensure_networks
   pushd "${STACKS_DIR}/traefik" >/dev/null
   log_info "Deploying Traefik stack..."
   docker stack deploy -c docker-compose.yml traefik
@@ -121,7 +126,7 @@ DOMAIN=${MAIN_DOMAIN}
 PORTAINER_DOMAIN=portainer.${MAIN_DOMAIN}
 PORTAINER_PORT=${http_port}
 PORTAINER_EDGE_PORT=${edge_port}
-NETWORK_NAME=${NETWORK_NAME}
+NETWORK_NAME=${WEB_NETWORK_NAME}
 EOF
 
   mkdir -p "${STACKS_DIR}/portainer/data"
@@ -129,7 +134,7 @@ EOF
 }
 
 deploy_portainer() {
-  ensure_network
+  ensure_networks
   pushd "${STACKS_DIR}/portainer" >/dev/null
   log_info "Deploying Portainer stack..."
   docker stack deploy -c docker-compose.yml portainer
@@ -166,7 +171,13 @@ show_status() {
   docker service ls || true
   echo ""
   log_info "Relevant networks:"
-  docker network ls | grep "${NETWORK_NAME}" || log_warn "Network ${NETWORK_NAME} not found."
+  for net in "${WEB_NETWORK_NAME}" "${BACKEND_NETWORK_NAME}" "${MONITORING_NETWORK_NAME}"; do
+    if docker network inspect "${net}" >/dev/null 2>&1; then
+      log_success "Network '${net}' exists."
+    else
+      log_warn "Network '${net}' not found."
+    fi
+  done
 }
 
 show_logs() {
@@ -178,6 +189,87 @@ show_logs() {
   docker service logs -f "${service}"
 }
 
+list_stacks() {
+  log_info "Stacks:"
+  docker stack ls
+}
+
+remove_stack() {
+  local stack="$1"
+  if [[ -z "${stack}" ]]; then
+    log_error "Stack name required."
+    return 1
+  fi
+  if docker stack rm "${stack}" >/dev/null 2>&1; then
+    log_success "Stack '${stack}' removal initiated."
+  else
+    log_warn "Stack '${stack}' not found."
+  fi
+}
+
+interactive_menu() {
+  while true; do
+    cat <<'MENU'
+
+========================================
+Docker Swarm Stack Deployment Manager
+========================================
+1. Deploy Traefik
+2. Deploy Portainer
+3. Deploy All Infrastructure
+4. List Stacks
+5. Show Status
+6. Remove Stack
+7. Remove All Infrastructure
+8. View Service Logs
+9. Exit
+MENU
+
+    read -rp "Select an option (1-9): " choice
+    case "${choice}" in
+      1)
+        ensure_domain_selected
+        configure_traefik
+        deploy_traefik
+        ;;
+      2)
+        ensure_domain_selected
+        configure_portainer
+        deploy_portainer
+        ;;
+      3)
+        infra_up
+        ;;
+      4)
+        list_stacks
+        ;;
+      5)
+        show_status
+        ;;
+      6)
+        read -rp "Enter stack name to remove: " stack_name
+        remove_stack "${stack_name}"
+        ;;
+      7)
+        infra_down
+        ;;
+      8)
+        read -rp "Enter service name (e.g., traefik_traefik): " service_name
+        show_logs "${service_name}"
+        ;;
+      9)
+        log_info "Exiting..."
+        exit 0
+        ;;
+      *)
+        log_warn "Invalid option."
+        ;;
+    esac
+
+    read -rp "Press Enter to continue..." _
+  done
+}
+
 #------------------------------------------------------------------------------
 # Entry point
 #------------------------------------------------------------------------------
@@ -186,34 +278,62 @@ main() {
   require_docker
   ensure_swarm
 
+  if [[ $# -eq 0 ]]; then
+    interactive_menu
+    exit 0
+  fi
+
   local component="${1:-}"
+  local action="${2:-}"
+
   case "${component}" in
     infra)
-      case "${2:-}" in
+      case "${action}" in
         up) infra_up ;;
         down) infra_down ;;
         *) usage ;;
       esac
       ;;
     traefik)
-      case "${2:-}" in
+      case "${action}" in
         up) configure_traefik; deploy_traefik ;;
         down) remove_traefik ;;
         *) usage ;;
       esac
       ;;
     portainer)
-      case "${2:-}" in
+      case "${action}" in
         up) configure_portainer; deploy_portainer ;;
         down) remove_portainer ;;
         *) usage ;;
       esac
       ;;
+    up)
+      infra_up
+      ;;
+    down)
+      infra_down
+      ;;
+    list|ls)
+      list_stacks
+      ;;
     status)
       show_status
       ;;
+    remove)
+      remove_stack "${action}"
+      ;;
+    remove-all)
+      infra_down
+      ;;
+    networks)
+      ensure_networks
+      ;;
     logs)
-      show_logs "${2:-}"
+      show_logs "${action}"
+      ;;
+    menu)
+      interactive_menu
       ;;
     ""|help|-h|--help)
       usage

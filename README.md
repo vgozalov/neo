@@ -43,6 +43,26 @@ What happens:
 | `./setup.sh portainer down` | Remove Portainer |
 | `./setup.sh status` | Show stacks, services, networks |
 | `./setup.sh logs <service>` | Follow Swarm service logs |
+| `./setup.sh networks` | Ensure overlay networks exist |
+| `./setup.sh` | Launch interactive 1-9 menu |
+
+### Interactive Menu
+
+Running `./setup.sh` with no arguments opens the classic numbered menu:
+
+| Option | Action |
+| --- | --- |
+| 1 | Deploy Traefik |
+| 2 | Deploy Portainer |
+| 3 | Deploy all infrastructure |
+| 4 | List stacks |
+| 5 | Show status (stacks, services, networks) |
+| 6 | Remove a specific stack |
+| 7 | Remove all infrastructure (Portainer + Traefik) |
+| 8 | View service logs |
+| 9 | Exit |
+
+Each deployment option prompts for configuration (domain, Cloudflare token, etc.) with defaults already filled in.
 
 ## Configuration Prompts
 
@@ -74,13 +94,25 @@ Add the following A records in Cloudflare pointing to your server IP:
 
 Cloudflare SSL/TLS mode should be **Full** (not Flexible).
 
+## Network Topology
+
+Three overlay networks are managed automatically and reused by every stack:
+
+| Name | Subnet | Gateway | Flags |
+| --- | --- | --- | --- |
+| `web` | `10.0.0.0/24` | `10.0.0.1` | overlay, attachable, encrypted |
+| `backend` | `10.1.0.0/24` | `10.1.0.1` | overlay, internal, encrypted |
+| `monitoring` | `10.2.0.0/24` | `10.2.0.1` | overlay, attachable, encrypted |
+
+Use `./setup.sh networks` to recreate the networks if needed. Existing networks with these names are kept as-is.
+
 ## Directory Layout
 
 ```
 neo/
 ├── helpers/
-│   └── common.sh         # shared shell helpers
-├── setup.sh              # single entry point
+│   └── common.sh         # shared shell helpers + network creation
+├── setup.sh              # single entry point / interactive menu
 └── stacks/
     ├── portainer/
     │   ├── docker-compose.yml

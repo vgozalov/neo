@@ -8,7 +8,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 STACKS_DIR="${SCRIPT_DIR}/stacks"
-NETWORK_NAME="web"
+
+# Network names used throughout the project.
+WEB_NETWORK_NAME="web"
+BACKEND_NETWORK_NAME="backend"
+MONITORING_NETWORK_NAME="monitoring"
+NETWORK_NAME="${WEB_NETWORK_NAME}"  # backward compatibility alias
 
 # Colors for readable output.
 COLOR_RESET="\033[0m"
@@ -64,19 +69,60 @@ ensure_swarm() {
   log_success "Docker Swarm is active."
 }
 
-# Ensure overlay network exists for stacks.
-ensure_network() {
-  if docker network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
-    log_success "Network '${NETWORK_NAME}' already exists."
+# Internal helper to create overlay network with options.
+create_overlay_network() {
+  local name="$1"
+  shift
+
+  if docker network inspect "${name}" >/dev/null 2>&1; then
+    log_success "Network '${name}' already exists."
     return
   fi
 
-  log_info "Creating overlay network '${NETWORK_NAME}'."
-  docker network create \
+  log_info "Creating overlay network '${name}'."
+  if docker network create "$@" "${name}" >/dev/null 2>&1; then
+    log_success "Network '${name}' created."
+    return
+  fi
+
+  # If creation failed because it already exists (race) just continue.
+  if docker network inspect "${name}" >/dev/null 2>&1; then
+    log_warn "Network '${name}' already exists; using existing definition."
+    return
+  fi
+
+  log_error "Failed to create network '${name}'."
+  exit 1
+}
+
+# Ensure all required overlay networks exist with consistent configuration.
+ensure_networks() {
+  create_overlay_network \
+    "${WEB_NETWORK_NAME}" \
     --driver overlay \
     --attachable \
-    "${NETWORK_NAME}"
-  log_success "Network '${NETWORK_NAME}' created."
+    --opt encrypted=true \
+    --subnet 10.0.0.0/24 \
+    --gateway 10.0.0.1 \
+    --label description=main-overlay-network
+
+  create_overlay_network \
+    "${BACKEND_NETWORK_NAME}" \
+    --driver overlay \
+    --internal \
+    --opt encrypted=true \
+    --subnet 10.1.0.0/24 \
+    --gateway 10.1.0.1 \
+    --label description=backend-internal-network
+
+  create_overlay_network \
+    "${MONITORING_NETWORK_NAME}" \
+    --driver overlay \
+    --attachable \
+    --opt encrypted=true \
+    --subnet 10.2.0.0/24 \
+    --gateway 10.2.0.1 \
+    --label description=monitoring-network
 }
 
 # Generate htpasswd entry using htpasswd or openssl fallback.
