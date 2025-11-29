@@ -119,7 +119,7 @@ configure_traefik() {
     
     # Ask for Cloudflare configuration
     read_input "Enter Cloudflare Email" "webmaster@avvaagency.com" CF_EMAIL
-    read_input "Enter Cloudflare DNS API Token" "" CF_DNS_API_TOKEN true
+    read_input "Enter Cloudflare DNS API Token" "" CF_DNS_API_TOKEN false
     echo ""
     
     # Ask for Traefik dashboard credentials
@@ -178,11 +178,11 @@ deploy_traefik() {
     # Deploy stack
     print_info "Deploying Traefik stack..."
     cd "$stack_dir"
-    docker stack deploy -c docker-compose.yml traefik --detach=false
+    docker stack deploy -c docker-compose.yml traefik
     
     print_success "Traefik deployment initiated"
     print_info "Waiting for services to be ready..."
-    sleep 5
+    sleep 10
     
     # Check service status
     docker service ls | grep traefik
@@ -250,11 +250,11 @@ deploy_portainer() {
     # Deploy stack
     print_info "Deploying Portainer stack..."
     cd "$stack_dir"
-    docker stack deploy -c docker-compose.yml portainer --detach=false
+    docker stack deploy -c docker-compose.yml portainer
     
     print_success "Portainer deployment initiated"
     print_info "Waiting for services to be ready..."
-    sleep 5
+    sleep 10
     
     # Check service status
     docker service ls | grep portainer
@@ -287,6 +287,31 @@ remove_stack() {
     if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
         docker stack rm "$stack_name"
         print_success "Stack $stack_name removed"
+    else
+        print_info "Removal cancelled"
+    fi
+}
+
+remove_all_infrastructure() {
+    print_header "Remove All Infrastructure"
+    
+    print_warning "This will remove BOTH Traefik and Portainer stacks"
+    print_warning "All other stacks should be removed first!"
+    echo ""
+    read -p "Are you absolutely sure? Type 'yes' to confirm: " confirm
+    
+    if [ "$confirm" = "yes" ]; then
+        print_info "Removing Portainer..."
+        docker stack rm portainer 2>/dev/null || print_warning "Portainer stack not found"
+        
+        print_info "Removing Traefik..."
+        docker stack rm traefik 2>/dev/null || print_warning "Traefik stack not found"
+        
+        print_info "Waiting for cleanup..."
+        sleep 5
+        
+        print_success "Infrastructure stacks removed"
+        print_info "You can redeploy with: ./deploy.sh all"
     else
         print_info "Removal cancelled"
     fi
@@ -327,14 +352,18 @@ show_status() {
 show_menu() {
     echo ""
     print_header "Docker Swarm Stack Deployment Manager"
-    echo "1. Deploy Traefik"
-    echo "2. Deploy Portainer"
-    echo "3. Deploy All (Traefik + Portainer)"
-    echo "4. List Stacks"
-    echo "5. Show Status"
-    echo "6. Remove Stack"
-    echo "7. View Service Logs"
-    echo "8. Exit"
+    echo "Infrastructure:"
+    echo "  1. Deploy Traefik"
+    echo "  2. Deploy Portainer"
+    echo "  3. Deploy All Infrastructure (Traefik + Portainer)"
+    echo ""
+    echo "Management:"
+    echo "  4. List Stacks"
+    echo "  5. Show Status"
+    echo "  6. Remove Stack"
+    echo "  7. Remove All Infrastructure"
+    echo "  8. View Service Logs"
+    echo "  9. Exit"
     echo ""
 }
 
@@ -416,6 +445,9 @@ main() {
             remove|rm)
                 remove_stack "$2"
                 ;;
+            remove-all)
+                remove_all_infrastructure
+                ;;
             logs)
                 show_logs "$2"
                 ;;
@@ -429,6 +461,7 @@ main() {
                 echo "  list, ls         List deployed stacks"
                 echo "  status           Show status of all services"
                 echo "  remove, rm       Remove a stack"
+                echo "  remove-all       Remove all infrastructure (Traefik + Portainer)"
                 echo "  logs             View service logs"
                 echo "  help             Show this help message"
                 echo ""
@@ -436,6 +469,7 @@ main() {
                 echo "  $0 all                    # Deploy everything"
                 echo "  $0 traefik                # Deploy only Traefik"
                 echo "  $0 remove traefik         # Remove Traefik stack"
+                echo "  $0 remove-all             # Remove all infrastructure"
                 echo "  $0 logs traefik_traefik   # View Traefik logs"
                 ;;
             *)
@@ -448,7 +482,7 @@ main() {
         # Interactive mode
         while true; do
             show_menu
-            read -p "Select an option (1-8): " choice
+            read -p "Select an option (1-9): " choice
             
             case $choice in
                 1)
@@ -477,15 +511,18 @@ main() {
                     remove_stack "$stack_name"
                     ;;
                 7)
+                    remove_all_infrastructure
+                    ;;
+                8)
                     read -p "Enter service name: " service_name
                     show_logs "$service_name"
                     ;;
-                8)
+                9)
                     print_info "Exiting..."
                     exit 0
                     ;;
                 *)
-                    print_error "Invalid option. Please select 1-8."
+                    print_error "Invalid option. Please select 1-9."
                     ;;
             esac
             
