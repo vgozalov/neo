@@ -1,3 +1,6 @@
+following stacks working - traefik, portainer, audibookshelf, n8n
+these stacks not working - odoo, tradetally
+
 # Minimal Swarm Infrastructure
 
 Single entry script (`setup.sh`) that configures and deploys **Traefik** and **Portainer** on Docker Swarm.  
