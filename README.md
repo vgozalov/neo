@@ -1,6 +1,3 @@
-following stacks working - traefik, portainer, audibookshelf, n8n
-these stacks not working - odoo, tradetally
-
 # Minimal Swarm Infrastructure
 
 Single entry script (`setup.sh`) that configures and deploys **Traefik** and **Portainer** on Docker Swarm.  
@@ -76,6 +73,32 @@ Running `./setup.sh` with no arguments opens the classic numbered menu:
 Each deployment option prompts for configuration (domain, Cloudflare token, etc.) with defaults already filled in.
 
 > `setup.sh` automatically ensures the shared overlay networks (web/backend/monitoring) exist before running any commands.
+
+## Stack Controls & Usage
+
+### Infrastructure (Traefik & Portainer)
+- `./setup.sh traefik up` – configure + deploy Traefik. Prompts for Cloudflare token and dashboard credentials.
+- `./setup.sh portainer up` – configure + deploy Portainer. Prompts for domain/ports.
+- `./setup.sh infra up` – runs both steps sequentially (Traefik first, then Portainer).
+- `./setup.sh traefik down` / `./setup.sh portainer down` – remove stacks.
+
+### Secondary Stacks
+Use `./setup.sh secondary single` and pick a stack, or run `./setup.sh secondary up` to deploy all of them in order.
+
+| Stack | Command | Notes |
+| --- | --- | --- |
+| n8n | `./setup.sh secondary single` → select `n8n` | Creates Postgres + n8n containers, prompts for DB/basicauth/encryption key, mounts `stacks/n8n/.n8n` |
+| Audiobookshelf | picker → `audiobookshelf` | Prompts for domain/port/UID/GID, mounts `audiobookshelf/audiobooks`, `config`, `metadata` |
+| Odoo AVVA | picker → `odoo_avva` | Prompts for domain, DB creds, admin password; writes `config/odoo.conf` |
+| TradeTally | picker → `tradetally` | Prompts for domain, ports, DB creds, JWT secrets, email settings, etc. Routes through Traefik to port 3000 |
+
+Removing any secondary stack: use menu option 8 (“Remove Stack”) or `./setup.sh remove <stack_name>`.
+
+### Common Operational Tasks
+- Redeploy single stack after editing `.env`: `./setup.sh <traefik|portainer> up` or `./setup.sh secondary single`.
+- View logs: `./setup.sh logs <service_name>` (service names follow the pattern `stack_service`, e.g. `tradetally_tradetally`).
+- Check status: `./setup.sh status`.
+- Ensure networks: `./setup.sh networks` (or `./setup.sh networks reset` to drop + recreate).
 
 ## Supported Stacks
 
