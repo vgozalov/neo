@@ -118,8 +118,8 @@ All secondary stacks share the `web` overlay for public routing (Traefik) and al
 Every `up` action collects:
 
 **Traefik**
-- Main domain (default `vagifgozalov.com`)
-- Cloudflare email (default `webmaster@avvaagency.com`)
+- Main domain (default `domain.com`)
+- Cloudflare email (default `webmaster@domain.com`)
 - Cloudflare DNS API token
 - Dashboard username (default `admin`)
 - Dashboard password (hidden input, required)
